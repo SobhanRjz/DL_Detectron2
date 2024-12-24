@@ -14,7 +14,7 @@ DataSets/images/*
 .env.local
 .env.*.local
 
-# IDE and editor files
+# IDE and editor files 
 .idea/
 .vscode/
 *.swp
