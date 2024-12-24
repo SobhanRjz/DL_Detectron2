@@ -9,7 +9,7 @@ build/
 output/
 DataSets/images/*
 
-# Environment variables
+# Environment variables 
 .env
 .env.local
 .env.*.local
