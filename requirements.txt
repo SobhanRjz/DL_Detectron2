@@ -1,9 +1,9 @@
 """
 List of Python dependencies for the project.
 """
-torch
-opencv-python
+torch>=1.7.0
+torchvision>=0.8.1
 detectron2
-scikit-learn
-matplotlib
-numpy
+opencv-python>=4.5.0
+numpy>=1.19.0
+pycocotools>=2.0.2

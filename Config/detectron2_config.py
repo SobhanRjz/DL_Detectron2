@@ -10,10 +10,10 @@ from detectron2.data import MetadataCatalog, DatasetCatalog
 
 class DetectronConfig:
 	N_CLUSTER = 4 # set base ROI Head layer number
-	epoch = 100
-	max_iter = 5000
-	batch_size_per_image = 512
-	ims_per_batch = 1
+	epoch = 10
+	max_iter = 1000
+	batch_size_per_image = 8
+	ims_per_batch = 2
 	def __init__(self):
 		
 		self.dataset_dicts = DatasetCatalog.get("my_dataset_train") # traindata set
@@ -40,38 +40,52 @@ class DetectronConfig:
 
 	def _set_model_config(self):
 		"""Set model-specific configurations."""
-		model_config = model_zoo.get_config_file("COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml")
+		model_config = model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_101_FPN_3x.yaml")
 		self.cfg.merge_from_file(model_config)
 		self.cfg.MODEL.DEVICE = DEVICE
 		self.cfg.OUTPUT_DIR = OUTPUT_PATH
-		self.cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml")
+		self.cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Detection/faster_rcnn_R_101_FPN_3x.yaml")
 		self.cfg.MODEL.PIXEL_MEAN = [103.53, 116.28, 123.675]  # Default ImageNet values
 		self.cfg.MODEL.PIXEL_STD = [57.375, 57.12, 58.395]
 
 	def _set_dataset_config(self):
 		"""Set dataset-specific configurations."""
 		self.cfg.DATASETS.TRAIN = ("my_dataset_train",)
-		self.cfg.DATASETS.TEST = ("my_dataset_val",)
+		self.cfg.DATASETS.TEST = ("my_dataset_valid",)
+		self.cfg.DATASETS.TRAIN_REPEAT_FACTOR = [("my_dataset_train", 1.0)]
 
 	def _set_dataloader_config(self):
 		"""Set DataLoader-specific configurations."""
-		self.cfg.DATALOADER.NUM_WORKERS = 2
+		# Set number of workers based on CPU cores available
+		self.cfg.DATALOADER.NUM_WORKERS = 4
+		# Filter out images with no annotations to improve training efficiency
 		self.cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS = False
-		self.cfg.DATALOADER.REPEAT_THRESHOLD = 1.0
+		# Use RepeatFactorTrainingSampler for better handling of class imbalance
 		self.cfg.DATALOADER.SAMPLER_TRAIN = "RepeatFactorTrainingSampler"
+		# Set repeat threshold to 0.001 for rare categories
+		self.cfg.DATALOADER.REPEAT_THRESHOLD = 0.1
+		# Enable square root sampling for balanced class distribution
+		self.cfg.DATALOADER.REPEAT_SQRT = True
+		# Set random seed for reproducibility
+		self.cfg.SEED = 42
+
 		self.cfg.DATALOADER.ASPECT_RATIO_GROUPING = True
 
 	def _set_input_config(self):
 		"""Set input-specific configurations."""
 		self.cfg.INPUT.MIN_SIZE_TRAIN_SAMPLING = "choice"
-		self.cfg.INPUT.MAX_SIZE_TRAIN = 640
+		self.cfg.INPUT.MIN_SIZE_TRAIN = (300,)  # Minimum image size during training (e.g., 300 pixels)
+		self.cfg.INPUT.MAX_SIZE_TRAIN = 500     # Maximum image size during training (e.g., 500 pixels)
+		self.cfg.INPUT.MIN_SIZE_TEST = 300      # Minimum image size during testing
+		self.cfg.INPUT.MAX_SIZE_TEST = 500      # Maximum image size during testing
 		self.cfg.INPUT.FORMAT = "BGR"
 		self.cfg.INPUT.RANDOM_FLIP = "vertical"
-		self.cfg.INPUT.CROP.ENABLED = False
+		self.cfg.INPUT.CROP.ENABLED = True
+
 
 	def _set_test_config(self):
 		"""Set test/evaluation-specific configurations."""
-		self.cfg.TEST.EVAL_PERIOD = 500
+		self.cfg.TEST.EVAL_PERIOD = 250
 
 
 
@@ -79,7 +93,7 @@ class DetectronConfig:
 		"""Sets the Feature Pyramid Network (FPN) options."""
 		self.cfg.MODEL.FPN.IN_FEATURES = ["res2", "res3", "res4", "res5"]
 		self.cfg.MODEL.FPN.OUT_CHANNELS = 256
-		self.cfg.MODEL.FPN.NORM = ""  # Options: "" (no norm), "GN" : Group Normalization
+		#self.cfg.MODEL.FPN.NORM = "GN"  # Group Normalization
 		self.cfg.MODEL.FPN.FUSE_TYPE = "sum"  # "sum" or "avg"
 
 	def _set_proposal_generator(self):
@@ -164,6 +178,7 @@ class DetectronConfig:
 		iterations = self.epoch * len(self.dataset_dicts) / (self.batch_size_per_image * self.ims_per_batch)
 		print(f"Total Iterations: {iterations}")
 
+		self.cfg.SOLVER.PATIENCE = 2000
 		self.cfg.SOLVER.IMS_PER_BATCH = self.ims_per_batch
 		self.cfg.SOLVER.BASE_LR = 0.00025
 		self.cfg.SOLVER.MAX_ITER = self.max_iter

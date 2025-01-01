@@ -1,40 +1,17 @@
-project/
-│
-├── config/                # Configuration files
-│   ├── base_config.py
-│   ├── detectron_config.py
+project_root/
+├── Config/
+│   ├── basic_config.py
+│   ├── detectron2_config.py
 │   └── dataset_config.py
-│
-├── datasets/              # Dataset-related operations
-│   ├── data_loader.py
-│   ├── preprocess.py
-│   ├── annotations/
-│   │   ├── train_annotations.json
-│   │   ├── test_annotations.json
-│   │   └── val_annotations.json
+├── Train/
+│   ├── main_train.py
+│   ├── train_utils.py
+│   └── custom_trainer.py
+├── DataSets/
+│   ├── preprocess_COCO.py
 │   └── images/
-│       ├── train/
-│       ├── test/
-│       └── val/
-│
-├── models/                # Model-related operations
-│   ├── custom_trainer.py
-│   ├── default_trainer.py
-│   └── anchor_generator.py
-│
-├── scripts/               # Scripts for specific tasks
-│   ├── train_model.py
-│   ├── test_model.py
-│   └── find_opt_lr.py
-│
-├── utils/                 # Utility functions
-│   ├── visualization.py
-│   ├── metrics.py
-│   ├── logger.py
-│   └── helpers.py
-│
-├── output/                # Model checkpoints, logs, and results
-│
-├── requirements.txt       # Python dependencies
-├── README.md              # Project documentation
-└── main.py                # Entry point for the project
+├── Utils/
+│   └── evaluation_utils.py
+├── output/
+│   └── logs/
+└── requirements.txt

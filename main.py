@@ -1,65 +1,115 @@
 # main.py
 """
 Entry point for the project.
+Handles dataset preprocessing, configuration and model training.
 """
+import os
+import logging
+from pathlib import Path
+import torch
 from Config.basic_config import BASE_PATH, OUTPUT_PATH, DEVICE
+from Config.basic_config import detectron2_logger as logger
 from Config.detectron2_config import DetectronConfig
-from Config.dataset_config import *
+from Config.dataset_config import DatasetConfig
 from DataSets.preprocess_COCO import COCOJsonProcessor
-from Train.main_train import mainTrain
+from Train import mainTrain
 from detectron2.engine import launch
-def main():
-    print("Initializing project...")
 
-    # Paths to COCO JSON files for training, testing, and validation
-    list_json = [
-        f"{BASE_PATH}/DataSets/images/{split}/_annotations.coco.json"
+
+def process_datasets():
+    """Handle dataset preprocessing and registration"""
+    # Use pathlib for more robust path handling
+    json_paths = [
+        Path(BASE_PATH) / "DataSets" / "images" / split / "_annotations.coco.json"
         for split in ["train", "test", "valid"]
     ]
-
-    # Preprocess COCO JSON files
-    print("Processing COCO JSON files...")
-    coco_processor = COCOJsonProcessor(list_json)
+    
+    logger.info("Processing COCO JSON files...")
+    coco_processor = COCOJsonProcessor([str(p) for p in json_paths])
     coco_processor.process_files()
 
-    # Register datasets
-    print("Registering datasets...")
-    dataset_config = DatasetConfig()
-    dataset_config.register_datasets()
 
-    # Load Detectron2 configuration
-    print("Loading Detectron2 configuration...")
+
+    logger.info("Registering datasets...")
+    DatasetConfig().register_datasets()
+
+    from collections import Counter
+    from detectron2.data import DatasetCatalog
+    import matplotlib.pyplot as plt
+    import matplotlib
+
+    matplotlib.use('TkAgg')  # Use Tkinter backend
+    # Load dataset
+    dataset_dicts = DatasetCatalog.get("my_dataset_train")
+
+    # Count instances per class
+    class_counts = Counter()
+    for data in dataset_dicts:
+        for annotation in data["annotations"]:
+            class_id = annotation["category_id"]
+            class_counts[class_id] += 1
+
+    # Create bar plot
+    plt.figure(figsize=(10, 6))
+    classes = list(class_counts.keys())
+    counts = list(class_counts.values())
+    
+    plt.bar(classes, counts)
+    plt.title('Distribution of Classes in Training Dataset')
+    plt.xlabel('Class ID')
+    plt.ylabel('Number of Instances')
+    
+    # Add count labels on top of each bar
+    for i, count in enumerate(counts):
+        plt.text(classes[i], count, str(count), ha='center', va='bottom')
+    
+    plt.tight_layout()
+    plt.savefig(str(Path(OUTPUT_PATH) / 'class_distribution.png'))
+    plt.close()
+
+    print("Class Distribution:", class_counts)
+    print("Distribution plot saved to:", str(Path(OUTPUT_PATH) / 'class_distribution.png'))
+
+
+def setup_training():
+    """Configure training settings and get GPU count"""
+    logger.info("Loading Detectron2 configuration...")
+
+    
     detectron_config = DetectronConfig()
     cfg = detectron_config.get_cfg()
 
-    # Dynamically detect the number of GPUs
-    num_gpus = get_num_gpus()
-
-    # Launch the main training function
-    print("Launching main training function...")
-    invoke_main(cfg, num_gpus)
-
-    print(f"Configuration loaded successfully with device: {DEVICE}")
-
-def get_num_gpus():
-    """
-    Returns the number of GPUs available in the system.
-    """
-    import torch
     num_gpus = torch.cuda.device_count()
-    print(f"Number of GPUs available: {num_gpus}")
-    return num_gpus
+    logger.info(f"Number of GPUs available: {num_gpus}")
+    
+    return cfg, num_gpus
 
-def invoke_main(cfg, num_gpus) -> None:
+def main():
+    """Main execution function"""
+    logger.info("Initializing project...")
+    
+    # Process and register datasets
+    process_datasets()
+    
+    # Setup training configuration
+    cfg, num_gpus = setup_training()
+
+    # Launch distributed training
+    logger.info("Launching training...")
     launch(
         mainTrain,
         num_gpus,
         num_machines=1,
         machine_rank=0,
-        dist_url="auto",
-        args=(cfg,),
+        dist_url="auto", 
+        args=(cfg,"custom"),
     )
+    # Save final model
+    logger.info("Saving final model...")
+    final_model_path = os.path.join(OUTPUT_PATH, "model_final.pth")
+    torch.save(cfg.MODEL.STATE_DICT(), final_model_path)
+    logger.info(f"Final model saved to: {final_model_path}")
+    logger.info(f"Configuration loaded successfully with device: {DEVICE}")
 
 if __name__ == "__main__":
     main()
-
