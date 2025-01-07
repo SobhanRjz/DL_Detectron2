@@ -1,73 +1,102 @@
 import os
 import json
 import shutil
+from pathlib import Path
+from typing import Dict, List, Tuple
+from dataclasses import dataclass
 
-# Paths to your folders
-validation_path = "C:\\Users\\sobha\\Desktop\\detectron2\\Data\\RoboFlowData\\petro.v7i.coco\\valid"
-train_path = "C:\\Users\\sobha\\Desktop\\detectron2\\Data\\RoboFlowData\\petro.v7i.coco\\train"
-test_path = "C:\\Users\\sobha\\Desktop\\detectron2\\Data\\RoboFlowData\\petro.v7i.coco\\test"
-output_folder = "C:\\Users\\sobha\\Desktop\\detectron2\\Data\\RoboFlowData\\petro.v7i.coco\\combined"
+@dataclass
+class DatasetPaths:
+    validation: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/4.aaaaaaaa.v2i.coco/valid")
+    train: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/4.aaaaaaaa.v2i.coco/train") 
+    test: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/4.aaaaaaaa.v2i.coco/test")
+    output: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/4.aaaaaaaa.v2i.coco/combined")
 
-# Create output folders for images and annotations
-output_images_folder = os.path.join(output_folder, "images")
-output_annotation_file = os.path.join(output_folder, "annotations.json")
-os.makedirs(output_images_folder, exist_ok=True)
+    @property
+    def output_images(self) -> Path:
+        return self.output / "images"
+    
+    @property
+    def output_annotations(self) -> Path:
+        return self.output / "_annotations.coco.json"
 
-# Initialize combined COCO JSON structure
-combined_annotations = {
-    "images": [],
-    "annotations": [],
-    "categories": []
-}
+class COCODatasetMerger:
+    def __init__(self, paths: DatasetPaths):
+        self.paths = paths
+        self.combined_annotations = {
+            "images": [],
+            "annotations": [],
+            "categories": []
+        }
+        self.image_id_offset = 0
+        self.annotation_id_offset = 0
+        
+        # Create output directories
+        self.paths.output_images.mkdir(parents=True, exist_ok=True)
 
-# To keep track of ID offsets
-image_id_offset = 0
-annotation_id_offset = 0
+    def merge_folder(self, folder_path: Path, json_file: Path) -> Tuple[int, int]:
+        """
+        Merge images and annotations from a folder into the combined structure.
+        
+        Args:
+            folder_path: Path to the dataset folder
+            json_file: Path to the COCO JSON annotation file
+            
+        Returns:
+            Tuple containing updated image and annotation ID offsets
+        """
+        with json_file.open('r') as f:
+            data = json.load(f)
 
-def merge_folder(folder_path, json_file, image_id_offset, annotation_id_offset):
-    """
-    Merge the content of a COCO folder into the combined structure.
-    """
-    # Load the COCO JSON annotation file
-    with open(json_file, "r") as f:
-        data = json.load(f)
+        # Copy categories only once
+        if not self.combined_annotations["categories"]:
+            self.combined_annotations["categories"] = data["categories"]
 
-    # Copy categories only once
-    if not combined_annotations["categories"]:
-        combined_annotations["categories"] = data["categories"]
+        # Process images
+        for image in data["images"]:
+            old_image_id = image["id"]
+            new_image_id = self.image_id_offset + old_image_id
+            image["id"] = new_image_id
+            self.combined_annotations["images"].append(image)
 
-    # Update image and annotation IDs while copying
-    for image in data["images"]:
-        old_image_id = image["id"]
-        image["id"] += image_id_offset
-        combined_annotations["images"].append(image)
+            # Copy image file
+            src = folder_path / image["file_name"]
+            dst = self.paths.output_images / image["file_name"]
+            shutil.copy(str(src), str(dst))
 
-        # Copy image files to the output folder
-        image_src = os.path.join(folder_path, image["file_name"])
-        image_dst = os.path.join(output_images_folder, image["file_name"])
-        shutil.copy(image_src, image_dst)
+        # Process annotations
+        for annotation in data["annotations"]:
+            annotation["id"] += self.annotation_id_offset
+            annotation["image_id"] += self.image_id_offset
+            self.combined_annotations["annotations"].append(annotation)
 
-    for annotation in data["annotations"]:
-        annotation["id"] += annotation_id_offset
-        annotation["image_id"] += image_id_offset
-        combined_annotations["annotations"].append(annotation)
+        return (
+            self.image_id_offset + len(data["images"]),
+            self.annotation_id_offset + len(data["annotations"])
+        )
 
-    # Return updated offsets
-    return image_id_offset + len(data["images"]), annotation_id_offset + len(data["annotations"])
+    def merge_all(self):
+        """Merge all dataset folders and save combined annotations."""
+        folders = [
+            (self.paths.validation, self.paths.validation / "_annotations.coco.json"),
+            (self.paths.train, self.paths.train / "_annotations.coco.json"),
+            (self.paths.test, self.paths.test / "_annotations.coco.json")
+        ]
 
-# Process each folder
-folders = [
-    {"path": validation_path, "json_file": os.path.join(validation_path, "annotations.json")},
-    {"path": train_path, "json_file": os.path.join(train_path, "annotations.json")},
-    {"path": test_path, "json_file": os.path.join(test_path, "annotations.json")},
-]
+        for folder_path, json_file in folders:
+            self.image_id_offset, self.annotation_id_offset = self.merge_folder(folder_path, json_file)
 
-for folder in folders:
-    image_id_offset, annotation_id_offset = merge_folder(folder["path"], folder["json_file"], image_id_offset, annotation_id_offset)
+        # Save combined annotations
+        with self.paths.output_annotations.open('w') as f:
+            json.dump(self.combined_annotations, f, indent=4)
 
-# Save the combined annotations
-with open(output_annotation_file, "w") as f:
-    json.dump(combined_annotations, f, indent=4)
+def main():
+    paths = DatasetPaths()
+    merger = COCODatasetMerger(paths)
+    merger.merge_all()
+    
+    print(f"Merged annotations saved to {paths.output_annotations}")
+    print(f"All images saved to {paths.output_images}")
 
-print(f"Merged annotations saved to {output_annotation_file}")
-print(f"All images saved to {output_images_folder}")
+if __name__ == "__main__":
+    main()
