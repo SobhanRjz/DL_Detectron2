@@ -7,10 +7,10 @@ from dataclasses import dataclass
 
 @dataclass
 class DatasetPaths:
-    validation: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/4.aaaaaaaa.v2i.coco/valid")
-    train: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/4.aaaaaaaa.v2i.coco/train") 
-    test: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/4.aaaaaaaa.v2i.coco/test")
-    output: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/4.aaaaaaaa.v2i.coco/combined")
+    validation: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/2. PipeMonitor.v1i.coco/valid")
+    train: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/2. PipeMonitor.v1i.coco/train") 
+    test: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/2. PipeMonitor.v1i.coco/test")
+    output: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/2. PipeMonitor.v1i.coco/combined")
 
     @property
     def output_images(self) -> Path:

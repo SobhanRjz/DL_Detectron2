@@ -9,23 +9,32 @@ from detectron2 import model_zoo
 from detectron2.data import MetadataCatalog, DatasetCatalog
 
 class DetectronConfig:
-	N_CLUSTER = 4 # set base ROI Head layer number
-	epoch = 10
-	max_iter = 1000
-	batch_size_per_image = 8
+	N_CLUSTER = 5 # set base ROI Head layer number
+	epoch = 30
+	#max_iter = 10000
+	batch_size_per_image = 512
 	ims_per_batch = 2
+	numberOfImages = 5000
+	iterations_per_epoch = numberOfImages / ims_per_batch
+	max_iter = epoch * iterations_per_epoch
+	max_iter = 30000
 	def __init__(self):
 		
 		self.dataset_dicts = DatasetCatalog.get("my_dataset_train") # traindata set
 		self.anchor_boxes = self._calculate_anchor_boxes()
 		self.kmeans_ratios = self._calculate_anchor_ratios()
+		self.IsMaskRCNN = True
+		self.modelName = ""
 		self.cfg = get_cfg()
 		self._initialize_cfg()
 		#self. _find_non_serializable()
 		self._save_cfg()
 
 	def _initialize_cfg(self):
+		
 		# Model settings
+		# Unfreeze the configuration to add custom keys
+		self.cfg.defrost()
 		self._set_model_config()
 		self._set_dataset_config()
 		self._set_dataloader_config()
@@ -37,29 +46,43 @@ class DetectronConfig:
 		self._set_roi_heads()
 		self._set_anchor_generator()
 		self._set_solver()
+		# Freeze the configuration after modifications
+		self.cfg.freeze()
 
 	def _set_model_config(self):
 		"""Set model-specific configurations."""
-		model_config = model_zoo.get_config_file("COCO-Detection/faster_rcnn_R_101_FPN_3x.yaml")
+		
+		
+		if self.IsMaskRCNN:
+			self.modelName = "mask_rcnn_X_101_32x8d_FPN_3x.yaml"
+			model_config = model_zoo.get_config_file("COCO-InstanceSegmentation/{}".format(self.modelName))
+			self.cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-InstanceSegmentation/{}".format(self.modelName))
+		else:
+			self.modelName = "faster_rcnn_X_101_32x8d_FPN_3x.yaml"
+			model_config = model_zoo.get_config_file("COCO-Detection/{}".format(self.modelName))
+			self.cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Detection/{}".format(self.modelName))
+
 		self.cfg.merge_from_file(model_config)
 		self.cfg.MODEL.DEVICE = DEVICE
 		self.cfg.OUTPUT_DIR = OUTPUT_PATH
-		self.cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Detection/faster_rcnn_R_101_FPN_3x.yaml")
-		self.cfg.MODEL.PIXEL_MEAN = [103.53, 116.28, 123.675]  # Default ImageNet values
-		self.cfg.MODEL.PIXEL_STD = [57.375, 57.12, 58.395]
+		
+		#self.cfg.MODEL.PIXEL_MEAN = [103.53, 116.28, 123.675]  # Default ImageNet values
+		#self.cfg.MODEL.PIXEL_STD = [57.375, 57.12, 58.395]
 
 	def _set_dataset_config(self):
 		"""Set dataset-specific configurations."""
 		self.cfg.DATASETS.TRAIN = ("my_dataset_train",)
 		self.cfg.DATASETS.TEST = ("my_dataset_valid",)
-		self.cfg.DATASETS.TRAIN_REPEAT_FACTOR = [("my_dataset_train", 1.0)]
+		
+		self.cfg.DATASETS.TRAIN_REPEAT_FACTOR = [['my_dataset_train', 1.0]]
+		#self.cfg.DATASETS.TRAIN_REPEAT_FACTOR = 1.0  # Define the custom key
 
 	def _set_dataloader_config(self):
 		"""Set DataLoader-specific configurations."""
 		# Set number of workers based on CPU cores available
 		self.cfg.DATALOADER.NUM_WORKERS = 4
 		# Filter out images with no annotations to improve training efficiency
-		self.cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS = False
+		self.cfg.DATALOADER.FILTER_EMPTY_ANNOTATIONS = True
 		# Use RepeatFactorTrainingSampler for better handling of class imbalance
 		self.cfg.DATALOADER.SAMPLER_TRAIN = "RepeatFactorTrainingSampler"
 		# Set repeat threshold to 0.001 for rare categories
@@ -74,19 +97,21 @@ class DetectronConfig:
 	def _set_input_config(self):
 		"""Set input-specific configurations."""
 		self.cfg.INPUT.MIN_SIZE_TRAIN_SAMPLING = "choice"
-		self.cfg.INPUT.MIN_SIZE_TRAIN = (300,)  # Minimum image size during training (e.g., 300 pixels)
-		self.cfg.INPUT.MAX_SIZE_TRAIN = 500     # Maximum image size during training (e.g., 500 pixels)
-		self.cfg.INPUT.MIN_SIZE_TEST = 300      # Minimum image size during testing
-		self.cfg.INPUT.MAX_SIZE_TEST = 500      # Maximum image size during testing
+		self.cfg.INPUT.MIN_SIZE_TRAIN = (300, 400, 500)  # Multi-scale training
+		self.cfg.INPUT.MAX_SIZE_TRAIN = 800  # Increased max size
+		self.cfg.INPUT.MIN_SIZE_TEST = 400  # Increased min size for testing
+		self.cfg.INPUT.MAX_SIZE_TEST = 800  # Increased max size for testing
 		self.cfg.INPUT.FORMAT = "BGR"
-		self.cfg.INPUT.RANDOM_FLIP = "vertical"
+		self.cfg.INPUT.RANDOM_FLIP = "horizontal"  # Add horizontal flip
 		self.cfg.INPUT.CROP.ENABLED = True
+		self.cfg.INPUT.CROP.TYPE = "relative_range"
+		self.cfg.INPUT.CROP.SIZE = [0.8, 0.8]  # Random cropping
 
 
 	def _set_test_config(self):
 		"""Set test/evaluation-specific configurations."""
-		self.cfg.TEST.EVAL_PERIOD = 250
-
+		self.cfg.TEST.EVAL_PERIOD = 500
+		self.cfg.TEST.DETECTIONS_PER_IMAGE = 100  # Increase detection limit
 
 
 	def _set_fpn(self):
@@ -102,17 +127,17 @@ class DetectronConfig:
 		self.cfg.MODEL.PROPOSAL_GENERATOR.MIN_SIZE = 0  # Minimum height and width for proposals
 		self.cfg.MODEL.KEYPOINT_ON = False  # Detect keypoints
 		self.cfg.MODEL.LOAD_PROPOSALS = False  # Use precomputed proposals
-		self.cfg.MODEL.MASK_ON = False  # Disable mask branch
+		self.cfg.MODEL.MASK_ON = self.IsMaskRCNN  # Enable mask branch for instance segmentation
 
 
 	def _set_rpn(self):
 		"""Sets the Region Proposal Network (RPN) head options."""
 		self.cfg.MODEL.RPN.HEAD_NAME = "StandardRPNHead"
-		self.cfg.MODEL.RPN.IN_FEATURES = ["p2", "p3", "p4", "p5"]  # Default: ["res4"]
+		#self.cfg.MODEL.RPN.IN_FEATURES = ["p2", "p3", "p4", "p5"]  # Default: ["res4"]
 		self.cfg.MODEL.RPN.BOUNDARY_THRESH = -1
 		self.cfg.MODEL.RPN.IOU_THRESHOLDS = [0.3, 0.7]
 		self.cfg.MODEL.RPN.IOU_LABELS = [0, -1, 1]
-		self.cfg.MODEL.RPN.BATCH_SIZE_PER_IMAGE = 256
+		self.cfg.MODEL.RPN.BATCH_SIZE_PER_IMAGE = self.batch_size_per_image
 		self.cfg.MODEL.RPN.POSITIVE_FRACTION = 0.5
 		self.cfg.MODEL.RPN.BBOX_REG_LOSS_TYPE = "smooth_l1"
 		self.cfg.MODEL.RPN.BBOX_REG_LOSS_WEIGHT = 1.0
@@ -131,7 +156,7 @@ class DetectronConfig:
 		Saves the configuration to a YAML file in the output directory.
 		"""
 		os.makedirs(self.cfg.OUTPUT_DIR, exist_ok=True)  # Ensure the output directory exists
-		config_path = os.path.join(self.cfg.OUTPUT_DIR, "faster_rcnn_X_101_32x8d_FPN_3x.yaml")
+		config_path = os.path.join(self.cfg.OUTPUT_DIR, "{}".format(self.modelName))
 		with open(config_path, "w") as f:
 			f.write(self.cfg.dump())  # Dump the configuration as YAML
 		print(f"Configuration saved to {config_path}")
@@ -159,15 +184,16 @@ class DetectronConfig:
 				while len(anchor_boxes) < num_features:
 					anchor_boxes.append(anchor_boxes[-1])  # Repeat last size
 			
-		self.cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = [(self.kmeans_ratios)]
-		self.cfg.MODEL.ANCHOR_GENERATOR.SIZES = [[round(w[0])] for w in anchor_boxes]
+		#self.cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = [(self.kmeans_ratios)]
+		#self.cfg.MODEL.ANCHOR_GENERATOR.SIZES.append([[round(w[0])] for w in anchor_boxes])
 
 	def _set_roi_heads(self):
 		classes = MetadataCatalog.get("my_dataset_train").thing_classes
 		self.cfg.MODEL.ROI_HEADS.NUM_CLASSES = len(classes)
+		self.cfg.MODEL.ROI_HEADS.CLASS_NAMES = classes
 		self.cfg.MODEL.ROI_HEADS.IN_FEATURES = ["p2", "p3", "p4", "p5"]
-		self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.05
-		self.cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.5
+		self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.2
+		self.cfg.MODEL.ROI_HEADS.NMS_THRESH_TEST = 0.4
 		self.cfg.MODEL.ROI_BOX_HEAD.USE_FED_LOSS = False
 		self.cfg.MODEL.ROI_BOX_HEAD.USE_SIGMOID_CE = False
 		self.cfg.MODEL.ROI_BOX_HEAD.FED_LOSS_NUM_CLASSES = len(classes)
@@ -177,14 +203,14 @@ class DetectronConfig:
 
 		iterations = self.epoch * len(self.dataset_dicts) / (self.batch_size_per_image * self.ims_per_batch)
 		print(f"Total Iterations: {iterations}")
-
+		"""Sets the solver options."""
 		self.cfg.SOLVER.PATIENCE = 2000
 		self.cfg.SOLVER.IMS_PER_BATCH = self.ims_per_batch
-		self.cfg.SOLVER.BASE_LR = 0.00025
-		self.cfg.SOLVER.MAX_ITER = self.max_iter
-		self.cfg.SOLVER.STEPS = (int(self.max_iter * 0.75),)
-		self.cfg.SOLVER.WARMUP_ITERS = int(self.max_iter / 5)
-		self.cfg.SOLVER.BASE_LR_END = 0.0
+		self.cfg.SOLVER.BASE_LR = 0.001  # Increased learning rate
+		self.cfg.SOLVER.MAX_ITER = self.max_iter  # Set to 20,000
+		self.cfg.SOLVER.STEPS = (int(self.max_iter * 0.6), int(self.max_iter * 0.8))  # Step decay
+		self.cfg.SOLVER.WARMUP_ITERS = 1000  # Warm-up for 1,000 iterations
+		self.cfg.SOLVER.BASE_LR_END = 0.0001  # Lower final learning rate
 		self.cfg.SOLVER.MOMENTUM = 0.9
 		self.cfg.SOLVER.NESTEROV = False
 		self.cfg.SOLVER.RESCALE_INTERVAL = False
@@ -192,6 +218,7 @@ class DetectronConfig:
 		self.cfg.SOLVER.CLIP_GRADIENTS.CLIP_TYPE = "value"
 		self.cfg.SOLVER.CLIP_GRADIENTS.CLIP_VALUE = 1.0
 		self.cfg.SOLVER.CLIP_GRADIENTS.NORM_TYPE = 2.0
+		self.cfg.SOLVER.WEIGHT_DECAY = 0.0005  # Add weight decay for regularization
 		
 	
 	def _calculate_anchor_boxes(self, n_clusters=N_CLUSTER, _shouldPlot=False):

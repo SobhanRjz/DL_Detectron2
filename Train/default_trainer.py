@@ -16,6 +16,20 @@ class SimpleDefaultTrainer(BaseTrainer):
             resume (bool): whether to attempt to resume from the checkpoint directory.
                          Default: False.
         """
+        import os
+        import glob
+        import shutil
+        
+        # Remove TensorBoard event files from output directory
+        if os.path.exists(self.cfg.OUTPUT_DIR):
+            event_files = glob.glob(os.path.join(self.cfg.OUTPUT_DIR, "events.out.tfevents.*"))
+            for f in event_files:
+                try:
+                    os.remove(f)
+                    logger.info(f"Removed TensorBoard event file: {f}")
+                except OSError as e:
+                    logger.warning(f"Error removing file {f}: {e}")
+                    
         from detectron2.data import build_detection_train_loader
         from detectron2.checkpoint import DetectionCheckpointer, PeriodicCheckpointer
         from detectron2.utils.events import EventStorage
@@ -102,16 +116,19 @@ class SimpleDefaultTrainer(BaseTrainer):
                         writer.write()
                 periodic_checkpointer.step(iteration)
             
+
+            self.do_test(dataset_name="my_dataset_test")
             # Close TensorBoard writer
             if tb_writer is not None:
                 tb_writer.close()
 
-    def do_test(self, model=None):
+    def do_test(self, model=None, dataset_name="my_dataset_valid"):
         """
         Run model evaluation on test datasets.
         
         Args:
             model: Model to evaluate. If None, uses self.model
+            dataset_name: Name of dataset to evaluate on. Defaults to validation set.
             
         Returns:
             OrderedDict of evaluation results for each dataset
@@ -133,25 +150,24 @@ class SimpleDefaultTrainer(BaseTrainer):
 
         results = OrderedDict()
         try:
-            for dataset_name in self.cfg.DATASETS.TEST:
-                # Create data loader for test dataset
-                data_loader = build_detection_test_loader(self.cfg, dataset_name)
+            # Create data loader for test dataset
+            data_loader = build_detection_test_loader(self.cfg, dataset_name)
+            
+            # Initialize evaluator
+            output_folder = os.path.join(self.cfg.OUTPUT_DIR, "inference", dataset_name)
+            evaluator = get_evaluator(
+                self.cfg, dataset_name, output_folder
+            )
+            
+            # Run inference
+            results_i = inference_on_dataset(model, data_loader, evaluator)
+            results[dataset_name] = results_i
+            
+            # Log results
+            if comm.is_main_process():
+                logger.info(f"Evaluation results for {dataset_name} in csv format:")
+                print_csv_format(results_i)
                 
-                # Initialize evaluator
-                output_folder = os.path.join(self.cfg.OUTPUT_DIR, "inference", dataset_name)
-                evaluator = get_evaluator(
-                    self.cfg, dataset_name, output_folder
-                )
-                
-                # Run inference
-                results_i = inference_on_dataset(model, data_loader, evaluator)
-                results[dataset_name] = results_i
-                
-                # Log results
-                if comm.is_main_process():
-                    logger.info(f"Evaluation results for {dataset_name} in csv format:")
-                    print_csv_format(results_i)
-                    
         except Exception as e:
             logger.error(f"Error during evaluation: {str(e)}")
             raise
@@ -160,4 +176,4 @@ class SimpleDefaultTrainer(BaseTrainer):
         if len(results) == 1:
             results = list(results.values())[0]
             
-        return results        
+        return results

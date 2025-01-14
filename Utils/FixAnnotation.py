@@ -47,7 +47,7 @@ class ImageCleaner:
         
         print(f"Removed categories: {categories_to_remove}")
 
-    def remove_unannotated_images(self, data=None):
+    def remove_unannotated_images(self, data=None, ShouldDeletePic = False):
         data = data or self.data
         annotated_ids = self.get_annotated_image_ids()
         
@@ -60,12 +60,13 @@ class ImageCleaner:
         self._delete_images(images_to_delete)
         data["images"] = images_to_keep
 
-        # Remove unannotated files efficiently
-        annotated_images = {img["file_name"] for img in data["images"]}
-        for image_file in os.listdir(self.images_folder):
-            if image_file not in annotated_images:
-                (self.images_folder / image_file).unlink()
-                print(f"Removed unannotated image: {image_file}")
+        if ShouldDeletePic : 
+            # Remove unannotated files efficiently
+            annotated_images = {img["file_name"] for img in data["images"]}
+            for image_file in os.listdir(self.images_folder):
+                if image_file not in annotated_images:
+                    (self.images_folder / image_file).unlink()
+                    print(f"Removed unannotated image: {image_file}")
                 
 
         self._save_annotations()
@@ -180,10 +181,10 @@ if __name__ == "__main__":
         cleaner.data = cleaner._load_json(basic_annotation_path)
         cleaner.update_uniqueCategory()
         cleaner.remove_categories(["ddd"])
-        cleaner.remove_unannotated_images()
+        cleaner.remove_unannotated_images(ShouldDeletePic=True)
         cleaner.remove_duplicate_images()
         cleaner.convert_rectangles_to_polygons()
     else:
         cleaner.data = cleaner._load_json(manual_annotation_path)
-        cleaner.remove_unannotated_images()
+        #cleaner.remove_unannotated_images(ShouldDeletePic=False)
         cleaner.update_annotations_with_bbox()

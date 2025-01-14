@@ -39,19 +39,29 @@ elif device.type == "mps":
 
 np.random.seed(3)
 
-def show_mask(mask, ax, random_color=False, borders = True):
+def show_segmentation(segmentation, ax, random_color=False, borders=True):
     if random_color:
         color = np.concatenate([np.random.random(3), np.array([0.6])], axis=0)
     else:
         color = np.array([30/255, 144/255, 255/255, 0.6])
-    h, w = mask.shape[-2:]
-    mask = mask.astype(np.uint8)
-    mask_image =  mask.reshape(h, w, 1) * color.reshape(1, 1, -1)
+    
+    # Create empty mask
+    h, w = ax.get_figure().get_size_inches() * ax.get_figure().dpi
+    mask = np.zeros((int(h), int(w)), dtype=np.uint8)
+    
+    # Convert polygon points to numpy array
+    points = np.array(segmentation).reshape(-1, 2)
+    points = points.astype(np.int32)
+    
+    # Draw filled polygon
+    cv2.fillPoly(mask, [points], 1)
+    
+    mask_image = mask.reshape(mask.shape[0], mask.shape[1], 1) * color.reshape(1, 1, -1)
+    
     if borders:
-        contours, _ = cv2.findContours(mask,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
-        # Try to smooth contours
-        contours = [cv2.approxPolyDP(contour, epsilon=0.01, closed=True) for contour in contours]
-        mask_image = cv2.drawContours(mask_image, contours, -1, (1, 1, 1, 0.5), thickness=2) 
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        mask_image = cv2.drawContours(mask_image, contours, -1, (1, 1, 1, 0.5), thickness=2)
+    
     ax.imshow(mask_image)
 
 def show_points(coords, labels, ax, marker_size=375):
@@ -65,22 +75,26 @@ def show_box(box, ax):
     w, h = box[2] - box[0], box[3] - box[1]
     ax.add_patch(plt.Rectangle((x0, y0), w, h, edgecolor='green', facecolor=(0, 0, 0, 0), lw=2))    
 
-def show_masks(image, masks, scores, point_coords=None, box_coords=None, input_labels=None, borders=True):
-    for i, (mask, score) in enumerate(zip(masks, scores)):
-        plt.figure(figsize=(10, 10))
-        plt.imshow(image)
-        show_mask(mask, plt.gca(), borders=borders)
-        if point_coords is not None:
-            assert input_labels is not None
-            show_points(point_coords, input_labels, plt.gca())
-        if box_coords is not None:
-            # boxes
-            show_box(box_coords, plt.gca())
-        if len(scores) > 1:
-            plt.title(f"Mask {i+1}, Score: {score:.3f}", fontsize=18)
-        plt.axis('off')
-        plt.draw()
-        plt.pause(0.001)
+def show_annotations(image, annotation, point_coords=None, input_labels=None, borders=True):
+    plt.figure(figsize=(10, 10))
+    plt.imshow(image)
+    
+    # Show segmentation if it exists
+    if 'segmentation' in annotation:
+        show_segmentation(annotation['segmentation'][0], plt.gca(), borders=borders)
+    
+    # Show bounding box
+    bbox = annotation['bbox']
+    input_box = np.array([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
+    show_box(input_box, plt.gca())
+    
+    if point_coords is not None:
+        assert input_labels is not None
+        show_points(point_coords, input_labels, plt.gca())
+        
+    plt.axis('off')
+    plt.draw()
+    plt.pause(0.001)
 
 input_points = []
 input_labels = []
@@ -140,15 +154,29 @@ while True:
         bbox = annotation['bbox']  # [x, y, width, height]
         # Convert from COCO format [x,y,w,h] to [x1,y1,x2,y2]
         input_box = np.array([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
-        
         masks, scores, _ = predictor.predict(
             point_coords=None,
             point_labels=None,
             box=input_box[None, :],
             multimask_output=False,
         )
-        show_masks(image, masks, scores, box_coords=input_box)
         
+        # Convert mask to polygon
+        mask = masks[0]  # Take first mask
+        contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        # Get the largest contour
+        if len(contours) > 0:
+            largest_contour = max(contours, key=cv2.contourArea)
+            # Convert contour to polygon format
+            polygon = []
+            for point in largest_contour.reshape(-1, 2):
+                polygon.extend([float(point[0]), float(point[1])])
+            
+            # Update annotation with polygon segmentation
+            annotation['segmentation'] = [polygon]
+
+        show_annotations(image, annotation)
         # Create a figure and connect key press event
         fig = plt.gcf()
         def on_key(event):

@@ -22,6 +22,19 @@ class CustomTrainer(BaseTrainer):
         from detectron2.data.samplers import RepeatFactorTrainingSampler
         from detectron2.data import DatasetCatalog, MetadataCatalog
 
+
+        # Remove TensorBoard event files from output directory
+        import os
+        import glob
+        if os.path.exists(self.cfg.OUTPUT_DIR):
+            event_files = glob.glob(os.path.join(self.cfg.OUTPUT_DIR, "events.out.tfevents.*"))
+            for f in event_files:
+                try:
+                    os.remove(f)
+                    logger.info(f"Removed TensorBoard event file: {f}")
+                except OSError as e:
+                    logger.warning(f"Error removing file {f}: {e}")
+                    
         # Build optimizer and scheduler
         optimizer = build_optimizer(self.cfg, self.model)
         max_iter = self.cfg.SOLVER.MAX_ITER
@@ -162,6 +175,7 @@ class CustomTrainer(BaseTrainer):
                         checkpointer.save("model_final")
                         break
 
+        self.do_test(dataset_name="my_dataset_test")
         # Close TensorBoard writer
         if tb_writer is not None:
             tb_writer.close()
@@ -172,17 +186,16 @@ class CustomTrainer(BaseTrainer):
             'best_loss': best_loss
         }
     
-    def do_test(self, model=None):
+    def do_test(self, dataset_name="my_dataset_valid"):
         """
-        Run model evaluation on test datasets.
+        Run model evaluation on a specific test dataset.
         
         Args:
-            model: Model to evaluate. If None, uses self.model
+            dataset_name: Name of dataset to evaluate on. Defaults to "my_dataset_valid"
             
         Returns:
-            OrderedDict of evaluation results for each dataset
+            Evaluation results for the dataset
         """
-        from collections import OrderedDict
         import os
         from detectron2.data import build_detection_test_loader
         from detectron2.evaluation import inference_on_dataset
@@ -194,41 +207,31 @@ class CustomTrainer(BaseTrainer):
         from Config.basic_config import detectron2_logger as logger
         from Utils.evaluation_utils import get_evaluator
 
-        if model is None:
-            model = self.model
-
-        results = OrderedDict()
         try:
-            for dataset_name in self.cfg.DATASETS.TEST:
-                # Create data loader for test dataset
-                data_loader = build_detection_test_loader(self.cfg, dataset_name)
+            # Create data loader for test dataset
+            data_loader = build_detection_test_loader(self.cfg, dataset_name)
+            
+            # Initialize evaluator
+            output_folder = os.path.join(self.cfg.OUTPUT_DIR, "inference", dataset_name)
+            evaluator = get_evaluator(
+                self.cfg, dataset_name, output_folder
+            )
+            
+            # Run inference
+            results = inference_on_dataset(self.model, data_loader, evaluator)
+            
+            # Log results
+            if comm.is_main_process():
+                logger.info(f"Evaluation results for {dataset_name} in csv format:")
+                print_csv_format(results)
                 
-                # Initialize evaluator
-                output_folder = os.path.join(self.cfg.OUTPUT_DIR, "inference", dataset_name)
-                evaluator = get_evaluator(
-                    self.cfg, dataset_name, output_folder
-                )
-                
-                # Run inference
-                results_i = inference_on_dataset(model, data_loader, evaluator)
-                results[dataset_name] = results_i
-                
-                # Log results
-                if comm.is_main_process():
-                    logger.info(f"Evaluation results for {dataset_name} in csv format:")
-                    print_csv_format(results_i)
-                    
         except Exception as e:
             logger.error(f"Error during evaluation: {str(e)}")
             raise
             
-        # Return single result if only one dataset
-        if len(results) == 1:
-            results = list(results.values())[0]
-            
         return results
 
-    def _custom_mapper(self, dataset_dict):
+    def _custom_mapper(self, dataset_dict = "my_dataset_valid"):
         import torch
         from detectron2.data import detection_utils as utils
         import detectron2.data.transforms as T

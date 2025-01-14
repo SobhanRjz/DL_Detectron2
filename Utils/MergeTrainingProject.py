@@ -59,25 +59,25 @@ def get_category_id(category_name):
 
 # Iterate through each folder
 for folder in base_folders:
-    # Path to the current folder's images and annotation file
-    images_folder = os.path.join(folder, 'combined','images')
-    annotation_file = os.path.join(folder, 'combined','Final.json')
+    # Get paths for current folder
+    images_folder = folder / 'combined' / 'images'
+    annotation_file = folder / 'combined' / 'Final.json'
 
-    # Copy images to the output folder
-    for image_name in os.listdir(images_folder):
-        src_image_path = os.path.join(images_folder, image_name)
-        dst_image_path = os.path.join(output_images_folder, image_name)
-        if not os.path.exists(dst_image_path):
-            shutil.copy(src_image_path, dst_image_path)
+    # Copy new images to output folder
+    for image_path in images_folder.iterdir():
+        dest_path = output_images_folder / image_path.name
+        if not dest_path.exists():
+            shutil.copy(image_path, dest_path)
 
-    # Load the annotation file
-    with open(annotation_file, 'r') as f:
+    # Load and process annotations
+    with open(annotation_file) as f:
         annotations = json.load(f)
 
-    # Merge categories
+    # Process categories
     for category in annotations['categories']:
         category_name = category['name']
         category_id = get_category_id(category_name)
+        
         if category_id > len(merged_annotations['categories']):
             merged_annotations['categories'].append({
                 "id": category_id,
@@ -85,25 +85,36 @@ for folder in base_folders:
                 "supercategory": category.get('supercategory', '')
             })
 
-    # Merge images and annotations
+    # Process images
+    image_id_map = {}  # Map old image IDs to new ones
     for image in annotations['images']:
-        # Update image file path and get dimensions
-        image_path = os.path.join(images_folder, os.path.basename(image['file_name']))
-        img = Image.open(image_path)
-        width, height = img.size
+        # Get image dimensions
+        img_path = images_folder / image['file_name']
+        with Image.open(img_path) as img:
+            width, height = img.size
         
-        # Update image properties
-        image['file_name'] = os.path.join('images', os.path.basename(image['file_name']))
-        image['width'] = width
-        image['height'] = height
-        image['id'] = len(merged_annotations['images']) + 1
+        # Create new image entry
+        new_image_id = len(merged_annotations['images']) + 1
+        image_id_map[image['id']] = new_image_id
         
-        merged_annotations['images'].append(image)
+        merged_annotations['images'].append({
+            'id': new_image_id,
+            'file_name': image['file_name'],
+            'width': width,
+            'height': height
+        })
 
+    # Process annotations
     for annotation in annotations['annotations']:
-        # Update category ID
-        category_name = next(cat['name'] for cat in annotations['categories'] if cat['id'] == annotation['category_id'])
-        annotation['category_id'] = get_category_id(category_name)
+        # Map category ID
+        old_category_id = annotation['category_id']
+        category_name = next(cat['name'] for cat in annotations['categories'] 
+                           if cat['id'] == old_category_id)
+        new_category_id = get_category_id(category_name)
+        
+        # Create new annotation with mapped IDs
+        annotation['category_id'] = new_category_id
+        annotation['image_id'] = image_id_map[annotation['image_id']]
         merged_annotations['annotations'].append(annotation)
 
 # Save the merged annotations to the output file

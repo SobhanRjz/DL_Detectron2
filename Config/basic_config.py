@@ -8,7 +8,7 @@ import logging
 
 # Define base paths in a more readable and maintainable way
 BASE_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-DATA_PATH = os.path.join(BASE_PATH, 'DataSets', 'images')
+DATA_PATH = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\MergeData(1-4)\split_dataset" #os.path.join(BASE_PATH, 'DataSets', 'images')
 OUTPUT_PATH = os.path.join(BASE_PATH, 'output')
 
 # General settings

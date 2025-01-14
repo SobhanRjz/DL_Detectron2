@@ -50,6 +50,9 @@ class COCOJsonProcessor:
         Args:
             obj (dict): Annotation object from COCO JSON.
         """
+        # if 'bbox' not in obj or obj['bbox'] == []:
+        #     return
+            
         bbox = obj['bbox']
         obj['segmentation'] = [
             [bbox[0], bbox[1],

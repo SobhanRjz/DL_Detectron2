@@ -7,11 +7,11 @@ import os
 import logging
 from pathlib import Path
 import torch
-from Config.basic_config import BASE_PATH, OUTPUT_PATH, DEVICE
+from Config.basic_config import DATA_PATH, OUTPUT_PATH, DEVICE
 from Config.basic_config import detectron2_logger as logger
 from Config.detectron2_config import DetectronConfig
 from Config.dataset_config import DatasetConfig
-from DataSets.preprocess_COCO import COCOJsonProcessor
+from PreProcess.preprocess_COCO import COCOJsonProcessor
 from Train import mainTrain
 from detectron2.engine import launch
 
@@ -20,13 +20,13 @@ def process_datasets():
     """Handle dataset preprocessing and registration"""
     # Use pathlib for more robust path handling
     json_paths = [
-        Path(BASE_PATH) / "DataSets" / "images" / split / "_annotations.coco.json"
+        Path(DATA_PATH) / split / "_annotations.coco.json"
         for split in ["train", "test", "valid"]
     ]
     
     logger.info("Processing COCO JSON files...")
-    coco_processor = COCOJsonProcessor([str(p) for p in json_paths])
-    coco_processor.process_files()
+    # coco_processor = COCOJsonProcessor([str(p) for p in json_paths])
+    # coco_processor.process_files()
 
 
 
@@ -96,19 +96,19 @@ def main():
 
     # Launch distributed training
     logger.info("Launching training...")
-    launch(
+    trained_model = launch(
         mainTrain,
         num_gpus,
         num_machines=1,
         machine_rank=0,
         dist_url="auto", 
-        args=(cfg,"custom"),
+        args=(cfg, "default"),
     )
     # Save final model
     logger.info("Saving final model...")
-    final_model_path = os.path.join(OUTPUT_PATH, "model_final.pth")
-    torch.save(cfg.MODEL.STATE_DICT(), final_model_path)
-    logger.info(f"Final model saved to: {final_model_path}")
+    # final_model_path = os.path.join(OUTPUT_PATH, "model_final.pth")
+    # torch.save(trained_model.state_dict(), final_model_path)  # Save the trained model
+    # logger.info(f"Final model saved to: {}")
     logger.info(f"Configuration loaded successfully with device: {DEVICE}")
 
 if __name__ == "__main__":
