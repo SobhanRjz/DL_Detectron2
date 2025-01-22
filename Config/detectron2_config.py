@@ -3,21 +3,21 @@
 Configuration module for Detectron2 specific settings.
 """
 import os
-from Config.basic_config import DEVICE, OUTPUT_PATH
+from Config.basic_config import DEVICE, OUTPUT_PATH, DATA_PATH
 from detectron2.config import get_cfg
 from detectron2 import model_zoo
 from detectron2.data import MetadataCatalog, DatasetCatalog
 
 class DetectronConfig:
 	N_CLUSTER = 5 # set base ROI Head layer number
-	epoch = 30
+	epoch = 20
 	#max_iter = 10000
-	batch_size_per_image = 512
+	batch_size_per_image = 256
 	ims_per_batch = 2
 	numberOfImages = 5000
-	iterations_per_epoch = numberOfImages / ims_per_batch
-	max_iter = epoch * iterations_per_epoch
-	max_iter = 30000
+	batches_per_epoch = numberOfImages / ims_per_batch
+	max_iter = epoch * batches_per_epoch
+	#max_iter = 10000
 	def __init__(self):
 		
 		self.dataset_dicts = DatasetCatalog.get("my_dataset_train") # traindata set
@@ -66,8 +66,10 @@ class DetectronConfig:
 		self.cfg.MODEL.DEVICE = DEVICE
 		self.cfg.OUTPUT_DIR = OUTPUT_PATH
 		
-		#self.cfg.MODEL.PIXEL_MEAN = [103.53, 116.28, 123.675]  # Default ImageNet values
-		#self.cfg.MODEL.PIXEL_STD = [57.375, 57.12, 58.395]
+		# Calculate dataset-specific mean and std values
+		mean, std = self._calculate_mean_and_std(os.path.join(DATA_PATH, 'train'))
+		self.cfg.MODEL.PIXEL_MEAN = [m * 255.0 for m in mean]  # Convert from [0,1] to [0,255] range
+		self.cfg.MODEL.PIXEL_STD = [s * 255.0 for s in std]  # Convert from [0,1] to [0,255] range
 
 	def _set_dataset_config(self):
 		"""Set dataset-specific configurations."""
@@ -137,7 +139,7 @@ class DetectronConfig:
 		self.cfg.MODEL.RPN.BOUNDARY_THRESH = -1
 		self.cfg.MODEL.RPN.IOU_THRESHOLDS = [0.3, 0.7]
 		self.cfg.MODEL.RPN.IOU_LABELS = [0, -1, 1]
-		self.cfg.MODEL.RPN.BATCH_SIZE_PER_IMAGE = self.batch_size_per_image
+		self.cfg.MODEL.RPN.BATCH_SIZE_PER_IMAGE = self.batch_size_per_image # If the dataset has many objects and you want the RPN to learn from more samples / check memory
 		self.cfg.MODEL.RPN.POSITIVE_FRACTION = 0.5
 		self.cfg.MODEL.RPN.BBOX_REG_LOSS_TYPE = "smooth_l1"
 		self.cfg.MODEL.RPN.BBOX_REG_LOSS_WEIGHT = 1.0
@@ -176,16 +178,16 @@ class DetectronConfig:
 		anchor_boxes = self.anchor_boxes
 		
 		# Adjust the number of sizes to match IN_FEATURES
-		if len(anchor_boxes) != num_features:
-			print(f"Adjusting anchor sizes from {len(anchor_boxes)} to match {num_features} IN_FEATURES.")
-			if len(anchor_boxes) > num_features:
-				anchor_boxes = anchor_boxes[:num_features]  # Truncate
-			else:
-				while len(anchor_boxes) < num_features:
-					anchor_boxes.append(anchor_boxes[-1])  # Repeat last size
+		# if len(anchor_boxes) != num_features:
+		# 	print(f"Adjusting anchor sizes from {len(anchor_boxes)} to match {num_features} IN_FEATURES.")
+		# 	if len(anchor_boxes) > num_features:
+		# 		anchor_boxes = anchor_boxes[:num_features]  # Truncate
+		# 	else:
+		# 		while len(anchor_boxes) < num_features:
+		# 			anchor_boxes.append(anchor_boxes[-1])  # Repeat last size
 			
-		#self.cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = [(self.kmeans_ratios)]
-		#self.cfg.MODEL.ANCHOR_GENERATOR.SIZES.append([[round(w[0])] for w in anchor_boxes])
+		self.cfg.MODEL.ANCHOR_GENERATOR.ASPECT_RATIOS = [(self.kmeans_ratios)]
+		self.cfg.MODEL.ANCHOR_GENERATOR.SIZES = ([[round(w[0])] for w in anchor_boxes])
 
 	def _set_roi_heads(self):
 		classes = MetadataCatalog.get("my_dataset_train").thing_classes
@@ -210,6 +212,7 @@ class DetectronConfig:
 		self.cfg.SOLVER.MAX_ITER = self.max_iter  # Set to 20,000
 		self.cfg.SOLVER.STEPS = (int(self.max_iter * 0.6), int(self.max_iter * 0.8))  # Step decay
 		self.cfg.SOLVER.WARMUP_ITERS = 1000  # Warm-up for 1,000 iterations
+		self.cfg.SOLVER.WARMUP_STEPS = 1000
 		self.cfg.SOLVER.BASE_LR_END = 0.0001  # Lower final learning rate
 		self.cfg.SOLVER.MOMENTUM = 0.9
 		self.cfg.SOLVER.NESTEROV = False
@@ -283,5 +286,69 @@ class DetectronConfig:
 		
 		print(f"Calculated Anchor Ratios: {anchor_ratios}")
 		return Aspect
+	def _calculate_mean_and_std(self, dataset_dir):
+		"""
+		Calculate the mean and standard deviation of pixel values for a dataset stored in a flat directory.
+
+		Args:
+			dataset_dir (str): Path to the dataset containing images.
+
+		Returns:
+			tuple: (mean, std) for each channel (R, G, B).
+		"""
+		import os
+		from PIL import Image
+		from torch.utils.data import DataLoader, Dataset
+		from torchvision import transforms
+		import torch
+		from tqdm import tqdm
+
+		# Define a dataset class
+		class FlatImageDataset(Dataset):
+			def __init__(self, image_dir, transform=None):
+				self.image_dir = image_dir
+				self.image_files = [
+					os.path.join(image_dir, f) for f in os.listdir(image_dir)
+					if f.lower().endswith(('.png', '.jpg', '.jpeg'))
+				]
+				self.transform = transform
+
+			def __len__(self):
+				return len(self.image_files)
+
+			def __getitem__(self, idx):
+				img_path = self.image_files[idx]
+				image = Image.open(img_path).convert("RGB")  # Ensure RGB format
+				if self.transform:
+					image = self.transform(image)
+				return image
+
+		# Transform: Convert images to tensors
+		transform = transforms.Compose([
+			transforms.ToTensor()  # Convert to tensor with values in [0, 1]
+		])
+
+		# Create the dataset and DataLoader
+		dataset = FlatImageDataset(dataset_dir, transform=transform)
+		loader = DataLoader(dataset, batch_size=64, shuffle=False, num_workers=0)
+
+		# Initialize sums
+		total_sum = torch.zeros(3, dtype=torch.double)
+		total_squared_sum = torch.zeros(3, dtype=torch.double)
+		total_pixels = 0
+
+		# Iterate through the dataset
+		for images in tqdm(loader, desc="Calculating mean and std"):
+			total_sum += images.sum(dim=[0, 2, 3]).double()  # Accumulate sum
+			total_squared_sum += (images ** 2).sum(dim=[0, 2, 3]).double()  # Accumulate squared sum
+			total_pixels += images.size(0) * images.size(2) * images.size(3)  # Count total pixels
+
+
+			# Calculate mean and std
+			mean = total_sum / total_pixels
+			std = (total_squared_sum / total_pixels - mean ** 2).sqrt()
+
+			return mean.tolist(), std.tolist()
+
 	def get_cfg(self):
 		return self.cfg

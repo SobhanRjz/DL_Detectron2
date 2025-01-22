@@ -14,7 +14,7 @@ class CustomTrainer(BaseTrainer):
         from detectron2.engine import default_writers
         from detectron2.solver import build_lr_scheduler, build_optimizer
         from detectron2.solver import LRMultiplier, WarmupParamScheduler
-        from fvcore.common.param_scheduler import MultiStepParamScheduler
+        from fvcore.common.param_scheduler import MultiStepParamScheduler, CosineParamScheduler
         from detectron2.utils import comm
         from detectron2.utils.events import EventStorage
         from Config.basic_config import detectron2_logger as logger
@@ -40,23 +40,43 @@ class CustomTrainer(BaseTrainer):
         max_iter = self.cfg.SOLVER.MAX_ITER
         
         # Configure learning rate scheduler
-        if hasattr(self.cfg.SOLVER, 'LR_TEST') and self.cfg.SOLVER.LR_TEST:
+        IsCustomWarmup = False
+        if IsCustomWarmup:
             try:
                 warmup_factor = self.cfg.SOLVER.BASE_LR / self.cfg.SOLVER.WARMUP_STEPS
-                multiplier = WarmupParamScheduler(
-                    MultiStepParamScheduler(
-                        [1, 0.1, 0.01, 0.001],
-                        milestones=[0.5 * max_iter, 0.625 * max_iter, 0.75 * max_iter, 0.95 * max_iter],
-                    ),
-                    warmup_factor=warmup_factor,
-                    warmup_length=0.5,
-                )
+                warmup_length = 0.1  # Shorter warmup phase
+                milestones = [0.5 * max_iter, 0.75 * max_iter, 0.9 * max_iter]  # Adjusted milestones
+
+                # Choose between MultiStep or Cosine Annealing
+                use_cosine = getattr(self.cfg.SOLVER, 'USE_COSINE_ANNEALING', False)
+
+                if use_cosine:
+                    # Cosine Annealing Scheduler
+                    multiplier = WarmupParamScheduler(
+                        CosineParamScheduler(start_value=1.0, end_value=0.0),  # Cosine decay
+                        warmup_factor=warmup_factor,
+                        warmup_length=warmup_length,
+                    )
+                else:
+                    # MultiStep Scheduler
+                    multiplier = WarmupParamScheduler(
+                        MultiStepParamScheduler(
+                            [1, 0.1, 0.01],  # 3 decay steps
+                            milestones=milestones,
+                        ),
+                        warmup_factor=warmup_factor,
+                        warmup_length=warmup_length,
+                    )
+                
+                # Apply the scheduler
                 scheduler = LRMultiplier(optimizer, multiplier, max_iter=max_iter)
+
             except Exception as e:
                 logger.warning(f"Error configuring custom LR scheduler: {str(e)}. Using default scheduler.")
                 scheduler = build_lr_scheduler(self.cfg, optimizer)
         else:
             scheduler = build_lr_scheduler(self.cfg, optimizer)
+
 
         # Setup checkpointing
         checkpointer = DetectionCheckpointer(
@@ -83,18 +103,41 @@ class CustomTrainer(BaseTrainer):
         tb_writer = SummaryWriter(log_dir=self.cfg.OUTPUT_DIR) if comm.is_main_process() else None
 
         # Initialize training
-        # data_loader = build_detection_train_loader(self.cfg, mapper=self._custom_mapper)
+        data_loader = build_detection_train_loader(self.cfg, mapper=self._custom_mapper, )
         
-        # # Identify and oversample minority classes
-        # dataset_dicts = DatasetCatalog.get("my_dataset_train")
-        # repeat_factors = RepeatFactorTrainingSampler.repeat_factors_from_category_frequency(
-        #     dataset_dicts, repeat_thresh=0.05
-        # )
+        # Identify and oversample minority classes
+        dataset_dicts = DatasetCatalog.get("my_dataset_train")
+        repeat_factors = RepeatFactorTrainingSampler.repeat_factors_from_category_frequency(
+            dataset_dicts, repeat_thresh= self.cfg.DATALOADER.REPEAT_THRESHOLD
+        )
+        # Print sampling statistics
+        # if comm.is_main_process():
+        #     category_freq = self.get_category_frequency(dataset_dicts)
+        #     for cat_id, freq in category_freq.items():
+        #         # Get the average repeat factor for this category
+        #         cat_repeat_factors = []
+        #         for dataset_dict in dataset_dicts:
+        #             if any(ann["category_id"] == cat_id for ann in dataset_dict["annotations"]):
+        #                 idx = dataset_dict["image_id"]  # or appropriate index
+        #                 cat_repeat_factors.append(repeat_factors[idx])
+                
+        #         avg_rep_factor = sum(cat_repeat_factors) / len(cat_repeat_factors) if cat_repeat_factors else 1.0
+        #         print(f"Category {cat_id}: freq={freq:.2f}, rep={avg_rep_factor:.2f}")
+
+            # Build sampler
+        # Create sampler with correct arguments
+        sampler = RepeatFactorTrainingSampler(
+            repeat_factors=repeat_factors,  # Only needs repeat_factors
+            shuffle=True,     # Optional keyword argument
+            seed=42
+        )
+
+        data_loader = build_detection_train_loader(self.cfg, dataset=dataset_dicts, mapper=self._custom_mapper, sampler=sampler)
         # Create data loader with custom mapper and sampler
         
-        data_loader = build_detection_train_loader(
-            self.cfg
-        )
+        # data_loader = build_detection_train_loader(
+        #     self.cfg
+        # )
 
         logger.info(f"Starting training from iteration {start_iter}")
         
@@ -170,10 +213,10 @@ class CustomTrainer(BaseTrainer):
                     patience_counter += 1
                     if patience_counter % 100 == 0:
                         logger.info(f"******************* Loss hasn't improved for {patience_counter} iterations *******************")
-                    if patience_counter >= self.cfg.SOLVER.PATIENCE:
-                        logger.info("******************* Early stopping triggered *******************")
-                        checkpointer.save("model_final")
-                        break
+                    # if hasattr(self.cfg.SOLVER, 'PATIENCE') and patience_counter >= self.cfg.SOLVER.PATIENCE:
+                    #     logger.info("******************* Early stopping triggered *******************")
+                    #     checkpointer.save("model_final")
+                    #     break
 
         self.do_test(dataset_name="my_dataset_test")
         # Close TensorBoard writer
@@ -241,14 +284,12 @@ class CustomTrainer(BaseTrainer):
         dataset_dict = copy.deepcopy(dataset_dict)  # it will be modified by code below
         image = utils.read_image(dataset_dict["file_name"], format="BGR")
 
-        # Apply augmentations only to specific classes
-        augment_classes = {1, 3, 5}  # Set of underrepresented class IDs
-        augment = any(anno["category_id"] in augment_classes for anno in dataset_dict["annotations"])
-
         transform_list = [
-            T.ResizeShortestEdge(short_edge_length=(800, 1024), max_size=1333),
-            T.RandomBrightness(0.8, 1.2) if augment else T.NoOpTransform(),
-            T.RandomFlip(prob=0.5, horizontal=True, vertical=False) if augment else T.NoOpTransform(),
+            T.ResizeShortestEdge(short_edge_length=(640, 640), max_size=800),
+            # T.RandomBrightness(0.75, 1.25),
+            # T.RandomContrast(0.75, 1.25),
+            T.RandomCrop(crop_type="relative_range", crop_size=(0.8, 0.8)),
+            T.RandomFlip(prob=0.5, horizontal=True, vertical=False),
         ]
 
         image, transforms = T.apply_transform_gens(transform_list, image)
@@ -263,3 +304,24 @@ class CustomTrainer(BaseTrainer):
         dataset_dict["instances"] = utils.filter_empty_instances(instances)
 
         return dataset_dict
+    
+    def get_category_frequency(self, dataset_dicts):
+        from collections import defaultdict
+        """Calculate frequency of each category in the dataset"""
+        category_count = defaultdict(int)
+        total_annotations = 0
+        
+        # Count instances of each category
+        for dataset_dict in dataset_dicts:
+            for annotation in dataset_dict["annotations"]:
+                cat_id = annotation["category_id"]
+                category_count[cat_id] += 1
+                total_annotations += 1
+        
+        # Calculate frequencies
+        category_freq = {
+            cat_id: count / total_annotations 
+            for cat_id, count in category_count.items()
+        }
+    
+        return category_freq
