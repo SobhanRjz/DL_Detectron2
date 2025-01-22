@@ -16,7 +16,7 @@ class DetectronConfig:
 	ims_per_batch = 2
 	numberOfImages = 5000
 	batches_per_epoch = numberOfImages / ims_per_batch
-	max_iter = epoch * batches_per_epoch
+	max_iter = int(epoch * batches_per_epoch)
 	#max_iter = 10000
 	def __init__(self):
 		
