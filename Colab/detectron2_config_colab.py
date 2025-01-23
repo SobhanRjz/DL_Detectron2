@@ -13,7 +13,7 @@ class DetectronConfigColab:
 	epoch = 20
 	#max_iter = 10000
 	batch_size_per_image = 256
-	ims_per_batch = 16
+	ims_per_batch = 8
 	numberOfImages = 5000
 	batches_per_epoch = numberOfImages / ims_per_batch
 	max_iter = int(epoch * batches_per_epoch)
