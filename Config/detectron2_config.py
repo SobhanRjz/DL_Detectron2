@@ -66,6 +66,7 @@ class DetectronConfig:
 
 			self.cfg.SOLVER.PATIENCE = 2000
 			self.cfg.SOLVER.WARMUP_STEPS = 1000
+			self.cfg.DATASETS.TRAIN_REPEAT_FACTOR = [['my_dataset_train', 1.0]]
 			self.cfg.merge_from_file(model_config)
 			self.cfg.MODEL.ROI_HEADS.NUM_CLASSES = 8  # Ensure it matches the number of classes in your dataset
 
