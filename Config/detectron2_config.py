@@ -9,21 +9,22 @@ from detectron2 import model_zoo
 from detectron2.data import MetadataCatalog, DatasetCatalog
 
 class DetectronConfig:
-	N_CLUSTER = 5 # set base ROI Head layer number
-	epoch = 20
-	#max_iter = 10000
-	batch_size_per_image = 256
-	ims_per_batch = 2
-	numberOfImages = 5000
-	batches_per_epoch = numberOfImages / ims_per_batch
-	max_iter = int(epoch * batches_per_epoch)
-	#max_iter = 10000
+
+	# Global class variables
+	N_CLUSTER = 5  # set base ROI Head layer number
+	EPOCH = 20
+	IMS_PER_BATCH = 2
+	
 	def __init__(self):
-		
+		numberOfImages = len(DatasetCatalog.get("my_dataset_train")) * (2) # 2 is the number of times the dataset is repeated change base on your augmentation
+		batches_per_epoch = numberOfImages / self.IMS_PER_BATCH
+		self.max_iter = int(self.EPOCH * batches_per_epoch)
+		self.max_iter = int(50000)
 		self.dataset_dicts = DatasetCatalog.get("my_dataset_train") # traindata set
 		self.anchor_boxes = self._calculate_anchor_boxes()
 		self.kmeans_ratios = self._calculate_anchor_ratios()
 		self.IsMaskRCNN = True
+		self.IsResume = True
 		self.modelName = ""
 		self.cfg = get_cfg()
 		self._initialize_cfg()
@@ -36,6 +37,12 @@ class DetectronConfig:
 		# Unfreeze the configuration to add custom keys
 		self.cfg.defrost()
 		self._set_model_config()
+		if self.IsResume:
+			self._set_dataset_config()
+			self._set_solver()
+			self.cfg.freeze()
+			return
+
 		self._set_dataset_config()
 		self._set_dataloader_config()
 		self._set_input_config()
@@ -52,7 +59,21 @@ class DetectronConfig:
 	def _set_model_config(self):
 		"""Set model-specific configurations."""
 		
-		
+
+		if self.IsResume:
+			self.modelName = "mask_rcnn_X_101_32x8d_FPN_3x.yaml"
+			model_config = os.path.join(OUTPUT_PATH, self.modelName) # yaml file
+
+			self.cfg.SOLVER.PATIENCE = 2000
+			self.cfg.SOLVER.WARMUP_STEPS = 1000
+			self.cfg.merge_from_file(model_config)
+			self.cfg.MODEL.ROI_HEADS.NUM_CLASSES = 8  # Ensure it matches the number of classes in your dataset
+
+			self.cfg.MODEL.WEIGHTS = os.path.join(OUTPUT_PATH, "model_final.pth") # checkpoint file
+			self.cfg.MODEL.DEVICE = DEVICE
+			self.cfg.OUTPUT_DIR = OUTPUT_PATH
+			return
+
 		if self.IsMaskRCNN:
 			self.modelName = "mask_rcnn_X_101_32x8d_FPN_3x.yaml"
 			model_config = model_zoo.get_config_file("COCO-InstanceSegmentation/{}".format(self.modelName))
@@ -61,6 +82,11 @@ class DetectronConfig:
 			self.modelName = "faster_rcnn_X_101_32x8d_FPN_3x.yaml"
 			model_config = model_zoo.get_config_file("COCO-Detection/{}".format(self.modelName))
 			self.cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url("COCO-Detection/{}".format(self.modelName))
+
+		if self.IsResume:
+			model_config = os.path.join(OUTPUT_PATH, self.modelName) # yaml file
+			self.cfg.MODEL.WEIGHTS = os.path.join(OUTPUT_PATH, "model_final.pth") # checkpoint file
+
 
 		self.cfg.merge_from_file(model_config)
 		self.cfg.MODEL.DEVICE = DEVICE
@@ -139,7 +165,7 @@ class DetectronConfig:
 		self.cfg.MODEL.RPN.BOUNDARY_THRESH = -1
 		self.cfg.MODEL.RPN.IOU_THRESHOLDS = [0.3, 0.7]
 		self.cfg.MODEL.RPN.IOU_LABELS = [0, -1, 1]
-		self.cfg.MODEL.RPN.BATCH_SIZE_PER_IMAGE = self.batch_size_per_image # If the dataset has many objects and you want the RPN to learn from more samples / check memory
+		self.cfg.MODEL.RPN.BATCH_SIZE_PER_IMAGE = 256 # If the dataset has many objects and you want the RPN to learn from more samples / check memory
 		self.cfg.MODEL.RPN.POSITIVE_FRACTION = 0.5
 		self.cfg.MODEL.RPN.BBOX_REG_LOSS_TYPE = "smooth_l1"
 		self.cfg.MODEL.RPN.BBOX_REG_LOSS_WEIGHT = 1.0
@@ -203,11 +229,11 @@ class DetectronConfig:
 	def _set_solver(self):
 
 
-		iterations = self.epoch * len(self.dataset_dicts) / (self.batch_size_per_image * self.ims_per_batch)
-		print(f"Total Iterations: {iterations}")
+		
+		print(f"Total Iterations: ********************************* {self.max_iter} ***************************************")
 		"""Sets the solver options."""
-		self.cfg.SOLVER.PATIENCE = 2000
-		self.cfg.SOLVER.IMS_PER_BATCH = self.ims_per_batch
+		#self.cfg.SOLVER.PATIENCE = 2000 # cfg not recognized
+		self.cfg.SOLVER.IMS_PER_BATCH = self.IMS_PER_BATCH
 		self.cfg.SOLVER.BASE_LR = 0.001  # Increased learning rate
 		self.cfg.SOLVER.MAX_ITER = self.max_iter  # Set to 20,000
 		self.cfg.SOLVER.STEPS = (int(self.max_iter * 0.6), int(self.max_iter * 0.8))  # Step decay

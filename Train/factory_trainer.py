@@ -5,7 +5,7 @@ class TrainerFactory:
     """Factory class to create appropriate trainer instance"""
     
     @staticmethod
-    def create_trainer(trainer_type: str, cfg):
+    def create_trainer(trainer_type: str, cfg, resumeTrain = False):
         """Create a trainer based on type
         
         Args:
@@ -24,4 +24,4 @@ class TrainerFactory:
         if trainer_class is None:
             raise ValueError(f"Unknown trainer type: {trainer_type}. Valid types are: {list(trainer_types.keys())}")
             
-        return trainer_class(cfg)
+        return trainer_class(cfg, resumeTrain)

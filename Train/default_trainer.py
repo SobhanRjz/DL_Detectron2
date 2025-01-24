@@ -9,7 +9,7 @@ class SimpleDefaultTrainer(BaseTrainer):
         super().__init__(cfg)
         
     
-    def do_train(self, resume=False):
+    def do_train(self, resumeTrain=False):
         """
         Main training logic implemented inside the trainer class.
         Args:
@@ -51,7 +51,7 @@ class SimpleDefaultTrainer(BaseTrainer):
         )
         
         # Resume or load model weights
-        start_iter = checkpointer.resume_or_load(cfg.MODEL.WEIGHTS, resume=resume).get("iteration", -1) + 1
+        start_iter = checkpointer.resume_or_load(cfg.MODEL.WEIGHTS, resume=resumeTrain).get("iteration", -1) + 1
         max_iter = cfg.SOLVER.MAX_ITER
         
         # Set up periodic checkpointing

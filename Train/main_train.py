@@ -2,7 +2,7 @@ from detectron2.checkpoint import DetectionCheckpointer
 from Config.basic_config import detectron2_logger as logger
 from .factory_trainer import TrainerFactory
 
-def mainTrain(cfg, trainer_type="default"):
+def mainTrain(cfg, trainer_type="default", IsResume = False):
     """Main training function that handles model training and evaluation
     
     Args:
@@ -13,11 +13,11 @@ def mainTrain(cfg, trainer_type="default"):
         Test results after training or evaluation
     """
     logger.info(f"Initializing {trainer_type} trainer...")
-    trainer = TrainerFactory.create_trainer(trainer_type, cfg)
+    trainer = TrainerFactory.create_trainer(trainer_type, cfg, IsResume)
     
     # Check if evaluation only mode is enabled in config
-    eval_only = cfg.get("EVAL_ONLY", False)
-    
+    eval_only = cfg.get("EVAL_ONLY", IsResume)
+    eval_only = False
     if eval_only:
         logger.info("Running evaluation only mode...")
         checkpointer = DetectionCheckpointer(
@@ -26,13 +26,12 @@ def mainTrain(cfg, trainer_type="default"):
         )
         checkpointer.resume_or_load(
             cfg.MODEL.WEIGHTS,
-            resume=False
+            resume=IsResume
         )
         return trainer.do_test()
 
     # Train and evaluate
     logger.info("Starting training...")
-    trainer.do_train(resume=False)
+    trainer.do_train()
     
     logger.info("Training completed. Running evaluation...")
-    return trainer.do_test()

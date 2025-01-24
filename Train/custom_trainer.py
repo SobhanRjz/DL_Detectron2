@@ -3,11 +3,12 @@ from .base_trainer import BaseTrainer
 
 class CustomTrainer(BaseTrainer):
 
-    def __init__(self, cfg):
+    def __init__(self, cfg, resumeTrain = False):
+        self.resumeTrain = resumeTrain
         super().__init__(cfg)
 
 
-    def do_train(self, resume=False):
+    def do_train(self):
         import torch
         from detectron2.checkpoint import DetectionCheckpointer, PeriodicCheckpointer
         from detectron2.data import build_detection_train_loader
@@ -84,7 +85,7 @@ class CustomTrainer(BaseTrainer):
         )
         
         start_iter = checkpointer.resume_or_load(
-            self.cfg.MODEL.WEIGHTS, resume=resume
+            self.cfg.MODEL.WEIGHTS, resume=self.resumeTrain
         ).get("iteration", -1) + 1
         
         periodic_checkpointer = PeriodicCheckpointer(
@@ -218,6 +219,7 @@ class CustomTrainer(BaseTrainer):
                     #     checkpointer.save("model_final")
                     #     break
 
+        logger.info(f"Start Test evaluation ===================================>  my_dataset_test")
         self.do_test(dataset_name="my_dataset_test")
         # Close TensorBoard writer
         if tb_writer is not None:
@@ -286,7 +288,7 @@ class CustomTrainer(BaseTrainer):
 
         transform_list = [
             T.ResizeShortestEdge(short_edge_length=(640, 640), max_size=800),
-            # T.RandomBrightness(0.75, 1.25),
+            T.RandomBrightness(0.75, 1.25),
             # T.RandomContrast(0.75, 1.25),
             T.RandomCrop(crop_type="relative_range", crop_size=(0.8, 0.8)),
             T.RandomFlip(prob=0.5, horizontal=True, vertical=False),
@@ -304,8 +306,6 @@ class CustomTrainer(BaseTrainer):
         dataset_dict["instances"] = utils.filter_empty_instances(instances)
 
         return dataset_dict
-    
-    def get_category_frequency(self, dataset_dicts):
         from collections import defaultdict
         """Calculate frequency of each category in the dataset"""
         category_count = defaultdict(int)
