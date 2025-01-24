@@ -102,7 +102,7 @@ def main():
         num_machines=1,
         machine_rank=0,
         dist_url="auto", 
-        args=(cfg, "custom", True),
+        args=(cfg, "default", True),
     )
     # Save final model
     logger.info("Saving final model...")

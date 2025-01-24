@@ -5,11 +5,12 @@ from Config.basic_config import detectron2_logger as logger
 class SimpleDefaultTrainer(BaseTrainer):
     """Default trainer implementation"""
 
-    def __init__(self, cfg):
+    def __init__(self, cfg,  resumeTrain=False):
+        self.resumeTrain = resumeTrain
         super().__init__(cfg)
         
     
-    def do_train(self, resumeTrain=False):
+    def do_train(self):
         """
         Main training logic implemented inside the trainer class.
         Args:
@@ -51,7 +52,7 @@ class SimpleDefaultTrainer(BaseTrainer):
         )
         
         # Resume or load model weights
-        start_iter = checkpointer.resume_or_load(cfg.MODEL.WEIGHTS, resume=resumeTrain).get("iteration", -1) + 1
+        start_iter = checkpointer.resume_or_load(cfg.MODEL.WEIGHTS, resume=self.resumeTrain).get("iteration", -1) + 1
         max_iter = cfg.SOLVER.MAX_ITER
         
         # Set up periodic checkpointing
