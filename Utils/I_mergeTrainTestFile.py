@@ -7,10 +7,11 @@ from dataclasses import dataclass
 
 @dataclass
 class DatasetPaths:
-    validation: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/2. PipeMonitor.v1i.coco/valid")
-    train: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/2. PipeMonitor.v1i.coco/train") 
-    test: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/2. PipeMonitor.v1i.coco/test")
-    output: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/2. PipeMonitor.v1i.coco/combined")
+    BasePath: Path = Path("C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData/5.pipeline.v1i.coco-segmentation")
+    validation: Path = BasePath / "valid"
+    train: Path = BasePath / "train" 
+    test: Path = BasePath / "test"
+    output: Path = BasePath / "combined"
 
     @property
     def output_images(self) -> Path:
@@ -18,7 +19,7 @@ class DatasetPaths:
     
     @property
     def output_annotations(self) -> Path:
-        return self.output / "_annotations.coco.json"
+        return self.output / "I_Basic_annotations.coco.json"
 
 class COCODatasetMerger:
     def __init__(self, paths: DatasetPaths):
@@ -70,6 +71,7 @@ class COCODatasetMerger:
             annotation["image_id"] += self.image_id_offset
             self.combined_annotations["annotations"].append(annotation)
 
+
         return (
             self.image_id_offset + len(data["images"]),
             self.annotation_id_offset + len(data["annotations"])
@@ -84,7 +86,8 @@ class COCODatasetMerger:
         ]
 
         for folder_path, json_file in folders:
-            self.image_id_offset, self.annotation_id_offset = self.merge_folder(folder_path, json_file)
+            if folder_path.exists() and json_file.exists():
+                self.image_id_offset, self.annotation_id_offset = self.merge_folder(folder_path, json_file)
 
         # Save combined annotations
         with self.paths.output_annotations.open('w') as f:

@@ -15,15 +15,17 @@ class ImageCleaner:
         self.paths = DatasetPaths()
         self.images_folder = self.paths.output / "images"
         self.output_folder = self.paths.output
+        self.output_fileName = self.paths.output / "II_FixAnnotation_annotations.coco.json"
         #self._load_annotations()
             
-    def _load_annotations(self, filename="updated_annotations.coco.json"):
+    def _load_annotations(self, filename):
         with open(self.output_folder / filename, "r") as f:
             self.data = json.load(f)
             
     def get_annotated_image_ids(self):
         return {ann["image_id"] for ann in self.data["annotations"]}
     
+
     def remove_categories(self, categories_to_remove):
         # Get the IDs of the categories to remove and create new ID mapping
         category_ids_to_remove = set(cat["id"] for cat in self.data["categories"] 
@@ -46,6 +48,7 @@ class ImageCleaner:
         ]
         
         print(f"Removed categories: {categories_to_remove}")
+
 
     def remove_unannotated_images(self, data=None, ShouldDeletePic = False):
         data = data or self.data
@@ -86,14 +89,14 @@ class ImageCleaner:
                 
         self._delete_images(duplicates_to_delete)
         self.data["images"] = images_to_keep
-        self._save_annotations()
+        self._save_json(self.output_fileName, self.data)
         print("Duplicate images removed")
         
     def convert_rectangles_to_polygons(self):
         coco_data = self.data.copy()
 
         for annotation in coco_data['annotations']:
-            if 'bbox' in annotation:
+            if 'bbox' in annotation and 'segmentation' not in annotation:
                 x, y, width, height = annotation['bbox']
                 annotation['segmentation'] = [[
                     x, y,                    # Top-left
@@ -102,9 +105,8 @@ class ImageCleaner:
                     x, y + height            # Bottom-left
                 ]]
 
-        output_file = self.output_folder / "updated_annotations_polygons.coco.json"
-        self._save_json(output_file, coco_data)
-        print(f"Converted annotations saved to {output_file}")
+        self._save_json(self.output_fileName, coco_data)
+        print(f"Converted annotations saved to {self.output_fileName}")
         
     def _delete_images(self, images):
         for img in images:
@@ -113,8 +115,8 @@ class ImageCleaner:
                 img_path.unlink()
                 print(f"Deleted: {img_path}")
                 
-    def _save_annotations(self):
-        self._save_json(self.paths.output / "updated_annotations.coco.json", self.data)
+    def _save_annotations(self, path):
+        self._save_json(path, self.data)
         
     def _save_json(self, path, data):
         with open(path, "w") as f:
@@ -123,15 +125,10 @@ class ImageCleaner:
         
     def update_annotations_with_bbox(self):
         """Update annotations with bounding boxes derived from segmentations if ManualAnnotation.json exists"""
-        manual_annotation_path = self.paths.output / "ManualAnnotation.json"
-        if not manual_annotation_path.exists():
-            return
-            
-        print("Found ManualAnnotation.json - updating with bounding boxes...")
-        coco_data = self._load_json(manual_annotation_path)
 
+            
         # Update annotations with bounding boxes
-        for annotation in coco_data.get('annotations', []):
+        for annotation in self.data.get('annotations', []):
             if 'segmentation' in annotation:
                 segmentation = np.array(annotation['segmentation'][0]).reshape(-1, 2)
                 x_min, y_min = segmentation.min(axis=0)
@@ -139,7 +136,7 @@ class ImageCleaner:
                 annotation['bbox'] = [float(x_min), float(y_min), 
                                     float(x_max - x_min), float(y_max - y_min)]
 
-        self._save_json(self.paths.output / "ManualAnnotation_with_bbox.json", coco_data)
+        self._save_json(self.output_fileName, self.data)
     
     def update_uniqueCategory(self):
         # Track duplicate categories and map category names to IDs
@@ -175,16 +172,22 @@ class ImageCleaner:
 if __name__ == "__main__":
     cleaner = ImageCleaner()
     basic_annotation_path = cleaner.paths.output / "I_Basic_annotations.coco.json"
-    manual_annotation_path = cleaner.paths.output / "II_annotations.coco.json" # Should be annotatated by your own
+    cleaner.data = cleaner._load_json(basic_annotation_path)
+    cleaner.update_uniqueCategory()
+    cleaner.remove_categories(["00", "ZW"])
+    cleaner.convert_rectangles_to_polygons()
+    cleaner.update_annotations_with_bbox()
+    cleaner.remove_duplicate_images()
 
-    if not manual_annotation_path.exists():
-        cleaner.data = cleaner._load_json(basic_annotation_path)
-        cleaner.update_uniqueCategory()
-        cleaner.remove_categories(["ddd"])
-        cleaner.remove_unannotated_images(ShouldDeletePic=True)
-        cleaner.remove_duplicate_images()
-        cleaner.convert_rectangles_to_polygons()
-    else:
-        cleaner.data = cleaner._load_json(manual_annotation_path)
-        #cleaner.remove_unannotated_images(ShouldDeletePic=False)
-        cleaner.update_annotations_with_bbox()
+
+    # if not manual_annotation_path.exists():
+    #     cleaner.data = cleaner._load_json(basic_annotation_path)
+    #     cleaner.update_uniqueCategory()
+    #     cleaner.remove_categories(["ddd"])
+    #     cleaner.remove_unannotated_images(ShouldDeletePic=True)
+    #     cleaner.remove_duplicate_images()
+    #     cleaner.convert_rectangles_to_polygons()
+    # else:
+    #     cleaner.data = cleaner._load_json(manual_annotation_path)
+    #     #cleaner.remove_unannotated_images(ShouldDeletePic=False)
+    #     cleaner.update_annotations_with_bbox()

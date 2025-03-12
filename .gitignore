@@ -53,3 +53,4 @@ venv/
 ENV/
 env/ 
 Implement Detectron 2.zip
+*pth
