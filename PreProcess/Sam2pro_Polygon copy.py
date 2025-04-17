@@ -17,15 +17,27 @@ import logging
 from typing import List, Dict, Tuple, Optional, Union, Any
 from sam2.build_sam import build_sam2
 from sam2.sam2_image_predictor import SAM2ImagePredictor
+from shapely.geometry import MultiPoint
+from shapely.geometry import Polygon
 
 # Configure logging
+file_handler = logging.FileHandler('sam2_polygon_converter.log')
+file_handler.setLevel(logging.INFO)  # Log everything to file
+
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)  # Set console handler level
+
+# Filter to remove root logger messages from console
+class RootLoggerFilter(logging.Filter):
+    def filter(self, record):
+        return record.name != 'root'
+
+console_handler.addFilter(RootLoggerFilter())
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('sam2_polygon_converter.log')
-    ]
+    handlers=[console_handler, file_handler]
 )
 logger = logging.getLogger('SAM2PolygonConverter')
 
@@ -50,8 +62,13 @@ class SAM2PolygonConverter:
         'highlight': {'color': '#FFDE59', 'alpha': 0.9},   # Yellow highlight
     }
     
-    def __init__(self) -> None:
-        """Initialize the SAM2PolygonConverter with model, paths, and state tracking."""
+    def __init__(self, automatic_mode=False) -> None:
+        """
+        Initialize the SAM2PolygonConverter with model, paths, and state tracking.
+        
+        Args:
+            automatic_mode: If True, process all images automatically without UI
+        """
         self.device = self._get_device()
         self._setup_device()
         self.input_points: List[List[int]] = []
@@ -65,6 +82,7 @@ class SAM2PolygonConverter:
         self.all_images: Optional[List[Dict[str, Any]]] = None
         self.category_map: Optional[Dict[int, str]] = None
         self.checkpoint: Optional[Dict[str, Any]] = None
+        self.automatic_mode = automatic_mode
         
         # Initialize model and predictor
         logger.info("Initializing SAM2 model and predictor...")
@@ -74,9 +92,9 @@ class SAM2PolygonConverter:
         self.predictor = SAM2ImagePredictor(self.sam2_model)
         
         # Set paths
-        self.folder_images = Path(r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\5.pipeline.v1i.coco-segmentation\combined")
+        self.folder_images = Path(r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\7.divide-data_1X.v1-camere_pipe_75-25.coco\combined")
         self.final_json_modify_path = self.folder_images / "Final_Pro_Polygon.json"
-        self.final_json_path = self.folder_images / "III_AiDetection_annotations.coco.json"
+        self.final_json_path = self.folder_images / "II_FixAnnotation_annotations.coco.json"
         self.checkpoint_path = self.folder_images / "annotation_checkpoint.txt"
         
         # Point visualization params
@@ -171,7 +189,7 @@ class SAM2PolygonConverter:
         # Write updated checkpoint
         with open(self.checkpoint_path, 'w') as f:
             json.dump(checkpoint, f)
-        logger.info(f"Checkpoint saved: Image {image_file.name}")
+        #logger.info(f"Checkpoint saved: Image {image_file.name}")
     
     def _load_checkpoint(self) -> Dict[str, Any]:
         """
@@ -217,15 +235,21 @@ class SAM2PolygonConverter:
         if not self.checkpoint:
             self.checkpoint = {'image_names': []}
 
-        # Process images
+        # Create a dictionary to store the final annotations for each image
         start_time = time.time()
         processed_count = 0
+        skipped_count = 0
         
-        for idx, image_file in enumerate(image_files):
-            logger.info(f"Processing {image_file.name}... ({idx+1}/{total_images})")
+        # Use tqdm for progress tracking with rich display
+        from tqdm import tqdm
+        for idx, image_file in enumerate(tqdm(image_files, desc="Processing Images", 
+                                             unit="image", ncols=100, 
+                                             bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]")):
+            #logger.info(f"Processing {image_file.name}... ({idx+1}/{total_images})")
             
             if 'image_names' in self.checkpoint and image_file.name in self.checkpoint['image_names']:
                 logger.info(f"Skipping {image_file.name} as it's already processed")
+                skipped_count += 1
                 continue
                 
             # Load and process image
@@ -246,7 +270,12 @@ class SAM2PolygonConverter:
 
             self.predictor.set_image(image)
 
-            self._process_image_annotations(image_file, image_annotations, final_annotations)
+            if self.automatic_mode:
+                self._process_image_annotations_automatically(image_file, image_annotations, final_annotations)
+            else:
+                self._process_image_annotations(image_file, image_annotations, final_annotations)
+            
+            
             self._save_checkpoint(image_file)
             processed_count += 1
             
@@ -256,8 +285,9 @@ class SAM2PolygonConverter:
                 avg_time_per_image = elapsed_time / processed_count
                 remaining_images = total_images - idx - 1
                 remaining_time = avg_time_per_image * remaining_images
-                logger.info(f"Estimated remaining time: {remaining_time/60:.1f} minutes "
-                           f"({remaining_time/3600:.1f} hours)")
+                # logger.info(f"Progress: {processed_count} processed, {skipped_count} skipped, {total_images - processed_count - skipped_count} remaining")
+                # logger.info(f"Estimated remaining time: {remaining_time/60:.1f} minutes "
+                #            f"({remaining_time/3600:.1f} hours)")
 
         # Save updated annotations
         with open(self.final_json_modify_path, 'w') as f:
@@ -268,7 +298,8 @@ class SAM2PolygonConverter:
             self.checkpoint_path.unlink()
             logger.info("Checkpoint file removed as processing completed successfully")
             
-        logger.info(f"Processing complete! {processed_count} images processed.")
+        logger.info(f"Processing complete! {processed_count} images processed, {skipped_count} images skipped.")
+
     def _process_image_annotations(self, image_file: Path, 
                                   image_annotations: List[Dict[str, Any]], 
                                   final_annotations: Dict[str, Any]) -> None:
@@ -299,9 +330,9 @@ class SAM2PolygonConverter:
                               float(x2), float(y2), float(x1), float(y2)]
                 
                 # If segmentation is already the same as the bounding box, skip
-                if annotation['segmentation'] == [bbox_polygon]:
-                    logger.info(f"Annotation {ann_idx+1} already has segmentation identical to bbox, skipping")
-                    continue
+                # if annotation['segmentation'] == [bbox_polygon]:
+                #     logger.info(f"Annotation {ann_idx+1} already has segmentation identical to bbox, skipping")
+                #     continue
                 
                 # Check if segmentation has too many points (over 100), skip if so
                 if isinstance(annotation['segmentation'], list) and len(annotation['segmentation']) > 0:
@@ -334,9 +365,14 @@ class SAM2PolygonConverter:
                 
                 points, labels = self._select_points(annotation)
                 
-                # If no points selected, use bounding box directly as the mask
+                if points == [] and labels == []:
+                    logger.info("Escape pressed - using bounding box as mask")
+                    result_accepted = True
+                    continue
+
+                # If no points selected or Escape was pressed, use bounding box directly as the mask
                 if not points:
-                    logger.info("No points selected, using bounding box as mask")
+                    logger.info("No points selected")
                     x1, y1, w, h = [int(v) for v in bbox]
                     x2, y2 = x1 + w, y1 + h
                     
@@ -422,7 +458,11 @@ class SAM2PolygonConverter:
                                   for x in point]
                         
                         # Show the result
-                        fig, ax = plt.subplots(figsize=(10, 10))
+                        # Create figure with real image size (no scaling)
+                        height, width = self.current_image.shape[:2]
+                        dpi = 100  # Standard DPI
+                        figsize = (height/dpi, width/dpi)  # Calculate figure size to match image pixels
+                        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
                         ax.imshow(self.current_image)
                         self.show_segmentation([polygon], ax)
                         
@@ -476,7 +516,6 @@ class SAM2PolygonConverter:
                         stored_points = self.input_points.copy()
                         stored_labels = self.input_labels.copy()
 
-
     def _select_points(self, annotation: Dict[str, Any]) -> Tuple[List[List[int]], List[int]]:
         """
         Allow user to select points on the image for the current annotation.
@@ -491,6 +530,7 @@ class SAM2PolygonConverter:
         self.input_labels = []
         self.current_annotation = annotation
         self.point_artists = []
+        self.use_default_bbox = False
         
         # Get the class name for this annotation
         category_id = annotation['category_id']
@@ -507,19 +547,72 @@ class SAM2PolygonConverter:
         # Use high-quality image display
         self.ax.imshow(self.current_image, interpolation='antialiased')
         
-        # Draw the bounding box for reference with modern style
-        bbox = annotation['bbox']
-        rect = plt.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], 
-                         fill=False, 
-                         edgecolor=self.COLORS['bbox']['color'], 
-                         linewidth=2,
-                         linestyle='--',
-                         alpha=self.COLORS['bbox']['alpha'])
-        self.ax.add_patch(rect)
+        # Draw existing segmentation if available
+        if 'segmentation' in annotation and annotation['segmentation']:
+            # Draw the segmentation polygon
+            if isinstance(annotation['segmentation'], list) and len(annotation['segmentation']) > 0:
+                if isinstance(annotation['segmentation'][0], list):
+                    # Multiple polygons
+                    for polygon in annotation['segmentation']:
+                        poly_array = np.array(polygon).reshape(-1, 2)
+                        self.ax.fill(poly_array[:, 0], poly_array[:, 1], 
+                                    color=self.COLORS['segmentation']['color'], 
+                                    alpha=self.COLORS['segmentation']['alpha'],
+                                    linestyle='-', linewidth=1.5)
+                else:
+                    # Single polygon
+                    poly_array = np.array(annotation['segmentation'][0]).reshape(-1, 2)
+                    self.ax.fill(poly_array[:, 0], poly_array[:, 1], 
+                                color=self.COLORS['segmentation']['color'], 
+                                alpha=self.COLORS['segmentation']['alpha'],
+                                linestyle='-', linewidth=1.5)
+        else:
+            # If no segmentation, draw the bounding box as reference
+            bbox = annotation['bbox']
+            rect = plt.Rectangle((bbox[0], bbox[1]), bbox[2], bbox[3], 
+                             fill=False, 
+                             edgecolor=self.COLORS['bbox']['color'], 
+                             linewidth=2,
+                             linestyle='--',
+                             alpha=self.COLORS['bbox']['alpha'])
+            self.ax.add_patch(rect)
         
-        # Add default center point as foreground with modern style
-        center_x = int(bbox[0] + bbox[2] / 2)
-        center_y = int(bbox[1] + bbox[3] / 2)
+        # Calculate default center point
+        if 'segmentation' in annotation and annotation['segmentation']:
+            # Find the center of mass of the segmentation polygon
+            if isinstance(annotation['segmentation'], list) and len(annotation['segmentation']) > 0:
+                if isinstance(annotation['segmentation'][0], list):
+                    # For multiple polygons, use the first one
+                    poly_array = np.array(annotation['segmentation'][0]).reshape(-1, 2)
+                else:
+                    # Single polygon
+                    poly_array = np.array(annotation['segmentation'][0]).reshape(-1, 2)
+                
+                # Use shapely for more accurate centroid calculation
+                try:
+                    polygon = Polygon(poly_array)
+                    centroid = polygon.centroid
+                    if polygon.contains(centroid):
+                        best_center = centroid
+                    else:
+                        best_center = polygon.representative_point()
+                    center_x, center_y = int(best_center.x), int(best_center.y)
+                except Exception as e:
+                    # Fallback to simple mean if shapely fails
+                    logger.warning(f"Shapely centroid calculation failed: {e}. Using mean instead.")
+                    center_x = int(np.mean(poly_array[:, 0]))
+                    center_y = int(np.mean(poly_array[:, 1]))
+            else:
+                # Fallback to bbox center if no segmentation
+                center_x = int(bbox[0] + bbox[2] / 2)
+                center_y = int(bbox[1] + bbox[3] / 2)
+        else:
+            # Fallback to bbox center if no segmentation
+            center_x = int(bbox[0] + bbox[2] / 2)
+            center_y = int(bbox[1] + bbox[3] / 2)
+
+
+
         self.input_points.append([center_x, center_y])
         self.input_labels.append(1)
         self._draw_point(center_x, center_y, 1)
@@ -529,15 +622,17 @@ class SAM2PolygonConverter:
         title_text = f'Class: {class_name}'
         self.ax.set_title(title_text, fontsize=14, fontweight='bold', pad=10)
         
-        # Add instruction text at the bottom
+        # Add instruction text at the bottom with Escape key instruction
         instruction_text = (
             "Left-click: Add foreground point  |  "
             "Right-click: Add background point  |  "
             "Middle-click: Delete point  |  "
-            "Press Enter: Accept"
+            "Press Enter: Accept  |  "
+            "Press Esc: Use default bbox"
         )
         plt.figtext(0.5, 0.01, instruction_text, ha='center', 
                     bbox=dict(boxstyle='round,pad=0.5', 
+                    
                              facecolor='white', 
                              edgecolor='#CCCCCC',
                              alpha=0.9))
@@ -570,6 +665,10 @@ class SAM2PolygonConverter:
         
         plt.subplots_adjust(bottom=0.08)  # Adjust to make room for the instruction text
         plt.show(block=True)
+        
+        # Check if Escape was pressed
+        if self.use_default_bbox:
+            return [], []  # Return empty lists to signal using default bbox
         
         return self.input_points, self.input_labels
 
@@ -802,6 +901,11 @@ class SAM2PolygonConverter:
         """
         if event.key == 'enter':
             plt.close(self.fig)
+        elif event.key == 'escape':
+            # Set the default segmentation (bounding box) and exit point selection
+            logger.info("Escape pressed - using default bounding box segmentation")
+            self.use_default_bbox = True
+            plt.close(self.fig)
         elif event.key == 'ctrl+s':
             # Save current progress
             self._save_all_annotations()
@@ -845,9 +949,161 @@ class SAM2PolygonConverter:
         logger.info(f"All annotations saved at {time.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info(f"Backup created at: {backup_path}")
 
+    def _process_image_annotations_automatically(self, image_file: Path, 
+                                              image_annotations: List[Dict[str, Any]], 
+                                              final_annotations: Dict[str, Any]) -> None:
+        """
+        Process all annotations for a single image automatically without UI.
+        Uses default center points for each annotation.
+        
+        Args:
+            image_file: Path to the image file
+            image_annotations: List of annotations for this image
+            final_annotations: Complete annotations dictionary to update
+        """
+        total_annotations = len(image_annotations)
+        # logger.info(f"Auto-processing {total_annotations} annotations for {image_file.name}")
+        
+        # Process each annotation
+        for ann_idx, annotation in enumerate(image_annotations):
+            # logger.info(f"Processing annotation {ann_idx+1}/{total_annotations}")
+            
+            # Skip if annotation already has segmentation
+            if 'segmentation' in annotation and annotation['segmentation']:
+                # Check if segmentation is just the bbox rectangle
+                bbox = annotation['bbox']
+                x1, y1, w, h = [int(v) for v in bbox]
+                x2, y2 = x1 + w, y1 + h
+                
+                bbox_polygon = [float(x1), float(y1), float(x2), float(y1), 
+                              float(x2), float(y2), float(x1), float(y2)]
+                
+                if annotation['segmentation'] == [bbox_polygon]:
+                    logger.info(f"Annotation {ann_idx+1} has basic bbox segmentation, processing it")
+                else:
+                    # Skip non-bbox segmentations
+                    if isinstance(annotation['segmentation'], list) and len(annotation['segmentation']) > 0:
+                        # Check total points to decide if it's already a good segmentation
+                        if isinstance(annotation['segmentation'][0], list):
+                            total_points = sum(len(poly) // 2 for poly in annotation['segmentation'])
+                        else:
+                            total_points = len(annotation['segmentation'][0]) // 2
+                        
+                        if total_points > 50:
+                            logger.info(f"Annotation {ann_idx+1} has complex segmentation with {total_points} points, skipping")
+                            continue
+            
+            # Get bounding box
+            bbox = annotation['bbox']
+            input_box = np.array([bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]])
+            
+            # Calculate default center point
+            if 'segmentation' in annotation and annotation['segmentation']:
+                # Find the center of mass of the segmentation polygon
+                if isinstance(annotation['segmentation'], list) and len(annotation['segmentation']) > 0:
+                    if isinstance(annotation['segmentation'][0], list):
+                        # For multiple polygons, use the first one
+                        poly_array = np.array(annotation['segmentation'][0]).reshape(-1, 2)
+                    else:
+                        # Single polygon
+                        poly_array = np.array(annotation['segmentation'][0]).reshape(-1, 2)
+                    
+                    # Use shapely for more accurate centroid calculation
+                    try:
+                        polygon = Polygon(poly_array)
+                        centroid = polygon.centroid
+                        if polygon.contains(centroid):
+                            best_center = centroid
+                        else:
+                            best_center = polygon.representative_point()
+                        center_x, center_y = int(best_center.x), int(best_center.y)
+                    except Exception as e:
+                        # Fallback to simple mean if shapely fails
+                        logger.warning(f"Shapely centroid calculation failed: {e}. Using mean instead.")
+                        center_x = int(np.mean(poly_array[:, 0]))
+                        center_y = int(np.mean(poly_array[:, 1]))
+            else:
+                # Fallback to bbox center if no segmentation
+                center_x = int(bbox[0] + bbox[2] / 2)
+                center_y = int(bbox[1] + bbox[3] / 2)
+            
+            # Define point coordinates and labels
+            point_coords = np.array([[center_x, center_y]])
+            point_labels = np.array([1])  # 1 = foreground
+            
+            # logger.info(f"Using default point at ({center_x}, {center_y})")
+            
+            try:
+                # Predict segmentation with SAM2
+                masks, scores, _ = self.predictor.predict(
+                    point_coords=point_coords,
+                    point_labels=point_labels,
+                    box=input_box[None, :],
+                    multimask_output=False,
+                )
+                
+                mask = masks[0]
+                
+                # Force mask to be within the bounding box
+                mask_bbox = np.zeros_like(mask)
+                x1, y1, w, h = [int(v) for v in bbox]
+                x2, y2 = x1 + w, y1 + h
+                mask_bbox[y1:y2, x1:x2] = 1
+                mask = np.logical_and(mask, mask_bbox).astype(np.uint8)
+                
+                contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, 
+                                           cv2.CHAIN_APPROX_SIMPLE)
+                
+                if contours:
+                    largest_contour = max(contours, key=cv2.contourArea)
+                    polygon = [float(x) for point in largest_contour.reshape(-1, 2) for x in point]
+                    
+                    # Update the annotation
+                    for final_ann in final_annotations['annotations']:
+                        if (final_ann['image_id'] == annotation['image_id'] and 
+                            final_ann['id'] == annotation['id']):
+                            final_ann['segmentation'] = [polygon]
+                            break
+                    
+                    # logger.info(f"Successfully updated segmentation for annotation {ann_idx+1}")
+                else:
+                    # Fallback to bounding box if no contours found
+                    # logger.warning(f"No contours found for annotation {ann_idx+1}, using bounding box")
+                    x1, y1, w, h = [int(v) for v in bbox]
+                    x2, y2 = x1 + w, y1 + h
+                    polygon = [float(x1), float(y1), float(x2), float(y1), 
+                              float(x2), float(y2), float(x1), float(y2)]
+                    
+                    for final_ann in final_annotations['annotations']:
+                        if (final_ann['image_id'] == annotation['image_id'] and 
+                            final_ann['id'] == annotation['id']):
+                            final_ann['segmentation'] = [polygon]
+                            break
+            except Exception as e:
+                logger.error(f"Error processing annotation {ann_idx+1}: {e}")
+                # Fallback to bounding box in case of error
+                x1, y1, w, h = [int(v) for v in bbox]
+                x2, y2 = x1 + w, y1 + h
+                polygon = [float(x1), float(y1), float(x2), float(y1), 
+                          float(x2), float(y2), float(x1), float(y2)]
+                
+                for final_ann in final_annotations['annotations']:
+                    if (final_ann['image_id'] == annotation['image_id'] and 
+                        final_ann['id'] == annotation['id']):
+                        final_ann['segmentation'] = [polygon]
+                        break
+                logger.info(f"Using bounding box as fallback for annotation {ann_idx+1}")
+
 
 if __name__ == "__main__":
     np.random.seed(3)
     logger.info("Starting SAM2PolygonConverter")
-    converter = SAM2PolygonConverter()
+    
+    # Check if automatic mode is requested via command line
+    automatic_mode = "--auto" in sys.argv
+    automatic_mode = False
+    if automatic_mode:
+        logger.info("Running in automatic mode - no UI will be shown")
+        
+    converter = SAM2PolygonConverter(automatic_mode=automatic_mode)
     converter.process_images()
