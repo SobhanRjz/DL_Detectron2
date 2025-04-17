@@ -168,36 +168,61 @@ class DefectDetector:
         frame_paths = [os.path.join(frames_dir, frame) for frame in os.listdir(frames_dir)]
         self.logger.info(f"Processing {len(frame_paths)} frames from directory: {frames_dir}")
         
-        for countPic, framePath in enumerate(frame_paths, start=1):
+        # Create progress bar
+        from tqdm import tqdm
+        for countPic, framePath in enumerate(tqdm(frame_paths, desc="Processing frames", unit="frame"), start=1):
             frame = cv2.imread(framePath)
             if frame is None:
                 self.logger.warning(f"Failed to read frame: {framePath}")
                 continue
             
-            self.logger.info(f"Processing frame {countPic}/{len(frame_paths)}: {framePath}")
             detection_data, has_detections = self._process_single_frame(frame, time.time())
-            
+            # Skip if detection area is too low
+            if has_detections:
+                min_area_threshold = 100.0  # Minimum area threshold in pixels
+                valid_detections = []
+                for det in detection_data:
+                    area = det["bbox"][2] * det["bbox"][3]  # width * height
+                    if area < min_area_threshold:
+                        self.logger.debug(f"Skipping detection with small area: {area:.2f} < {min_area_threshold}")
+                        continue
+                    valid_detections.append(det)
+                
+                detection_data = valid_detections
+                has_detections = len(valid_detections) > 0
+
+                
             if has_detections:
                 for det in detection_data:
-                    annotId += 1
                     imageid_index = next((image["id"] for image in self.JsonData["images"] if framePath.endswith(image["file_name"])), None)
                     category_index = next((cat["id"] for cat in self.JsonData["categories"] if cat["name"] == det["class"]), None)
+                    
                     if category_index is None or imageid_index is None:
                         self.logger.warning(f"Missing category or image ID for frame: {framePath}. Category: {det['class']}, Image ID: {imageid_index}")
                         continue  # Skip this detection if IDs are missing
+                
+                    # Check if this detection category already exists for this image
+                    category_exists = any(
+                        ann["image_id"] == imageid_index and ann["category_id"] == category_index
+                        for ann in self.JsonData["annotations"]
+                    )
+                    
+                    if category_exists:
+                        self.logger.debug(f"Skipping duplicate detection for image {imageid_index}, category {category_index} ({det['class']})")
+                        continue
+                    
                     # Create annotation entry
+                    annotId += 1
                     annotation = {
                         "id": annotId,
-                        "image_id": imageid_index,  # Ensure single image_id
-                        "category_id": category_index,  # Get category ID based on detection
+                        "image_id": imageid_index,
+                        "category_id": category_index,
                         "bbox": det["bbox"],
-                        "area": det["bbox"][2] * det["bbox"][3],  # Calculate area as width * height from bbox
-                        "segmentation": det["segmentation"],  # Add the latest detections
+                        "area": det["bbox"][2] * det["bbox"][3],
+                        "segmentation": det["segmentation"],
                         "iscrowd": 0
                     }
-                    self.JsonData["annotations"].append(annotation)  # Append to existing annotations
-                    #self.logger.info(f"Added annotation for detection: {annotation}")
-
+                    self.JsonData["annotations"].append(annotation)
 
     def _process_single_frame(self, frame: np.ndarray, timestamp: float) -> tuple[np.ndarray, bool]:
         """Process a single frame and return the annotated result and detection data"""
