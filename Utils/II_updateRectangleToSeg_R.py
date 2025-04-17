@@ -72,7 +72,7 @@ class ImageCleaner:
                     print(f"Removed unannotated image: {image_file}")
                 
 
-        self._save_annotations()
+        #self._save_annotations()
         print("Unannotated images removed")
         
     def remove_duplicate_images(self):
@@ -96,7 +96,7 @@ class ImageCleaner:
         coco_data = self.data.copy()
 
         for annotation in coco_data['annotations']:
-            if 'bbox' in annotation and 'segmentation' not in annotation:
+            if 'bbox' in annotation and ('segmentation' not in annotation or len(annotation['segmentation']) == 0):
                 x, y, width, height = annotation['bbox']
                 annotation['segmentation'] = [[
                     x, y,                    # Top-left
@@ -129,7 +129,7 @@ class ImageCleaner:
             
         # Update annotations with bounding boxes
         for annotation in self.data.get('annotations', []):
-            if 'segmentation' in annotation:
+            if 'segmentation' in annotation and len(annotation['segmentation']) > 0:
                 segmentation = np.array(annotation['segmentation'][0]).reshape(-1, 2)
                 x_min, y_min = segmentation.min(axis=0)
                 x_max, y_max = segmentation.max(axis=0)
@@ -174,10 +174,11 @@ if __name__ == "__main__":
     basic_annotation_path = cleaner.paths.output / "I_Basic_annotations.coco.json"
     cleaner.data = cleaner._load_json(basic_annotation_path)
     cleaner.update_uniqueCategory()
-    cleaner.remove_categories(["00", "ZW"])
+    cleaner.remove_categories(["tree-sewer-LP-DS-sewer-PJ-sewer-CL-Sewer", "PJ"])
     cleaner.convert_rectangles_to_polygons()
     cleaner.update_annotations_with_bbox()
     cleaner.remove_duplicate_images()
+    cleaner.remove_unannotated_images(ShouldDeletePic=True)
 
 
     # if not manual_annotation_path.exists():
