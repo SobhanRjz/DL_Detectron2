@@ -24,7 +24,7 @@ class DetectronConfig:
 		self.anchor_boxes = self._calculate_anchor_boxes()
 		self.kmeans_ratios = self._calculate_anchor_ratios()
 		self.IsMaskRCNN = True
-		self.IsResume = True
+		self.IsResume = False
 		self.modelName = ""
 		self.cfg = get_cfg()
 		self._initialize_cfg()
