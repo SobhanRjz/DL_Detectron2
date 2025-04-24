@@ -7,6 +7,8 @@ from Config.basic_config import DEVICE, OUTPUT_PATH, DATA_PATH
 from detectron2.config import get_cfg
 from detectron2 import model_zoo
 from detectron2.data import MetadataCatalog, DatasetCatalog
+from torchvision import transforms
+from torch.utils.data import DataLoader, Dataset
 
 class DetectronConfig:
 
@@ -350,14 +352,14 @@ class DetectronConfig:
 					image = self.transform(image)
 				return image
 
-		# Transform: Convert images to tensors
-		transform = transforms.Compose([
-			transforms.ToTensor()  # Convert to tensor with values in [0, 1]
-		])
+		# Define a transform to resize the images
+		resize = transforms.Resize((640, 640))
 
-		# Create the dataset and DataLoader
-		dataset = FlatImageDataset(dataset_dir, transform=transform)
-		loader = DataLoader(dataset, batch_size=64, shuffle=False, num_workers=0)
+		# Apply the transform to your dataset
+		dataset = FlatImageDataset(dataset_dir, transform=resize)
+
+		# Create the DataLoader
+		dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
 
 		# Initialize sums
 		total_sum = torch.zeros(3, dtype=torch.double)
@@ -365,7 +367,7 @@ class DetectronConfig:
 		total_pixels = 0
 
 		# Iterate through the dataset
-		for images in tqdm(loader, desc="Calculating mean and std"):
+		for images in tqdm(dataloader, desc="Calculating mean and std"):
 			total_sum += images.sum(dim=[0, 2, 3]).double()  # Accumulate sum
 			total_squared_sum += (images ** 2).sum(dim=[0, 2, 3]).double()  # Accumulate squared sum
 			total_pixels += images.size(0) * images.size(2) * images.size(3)  # Count total pixels
