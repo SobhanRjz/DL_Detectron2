@@ -315,69 +315,48 @@ class DetectronConfig:
 		
 		print(f"Calculated Anchor Ratios: {anchor_ratios}")
 		return Aspect
-	def _calculate_mean_and_std(self, dataset_dir):
+	def calculate_mean_std(dataset_dir):
 		"""
-		Calculate the mean and standard deviation of pixel values for a dataset stored in a flat directory.
+		Calculate mean and std of RGB channels for images in a folder.
 
 		Args:
-			dataset_dir (str): Path to the dataset containing images.
+			dataset_dir (str): Path to folder containing images.
 
 		Returns:
-			tuple: (mean, std) for each channel (R, G, B).
+			tuple: (mean, std) for RGB channels.
 		"""
 		import os
 		from PIL import Image
-		from torch.utils.data import DataLoader, Dataset
-		from torchvision import transforms
 		import torch
+		from torchvision import transforms
 		from tqdm import tqdm
 
-		# Define a dataset class
-		class FlatImageDataset(Dataset):
-			def __init__(self, image_dir, transform=None):
-				self.image_dir = image_dir
-				self.image_files = [
-					os.path.join(image_dir, f) for f in os.listdir(image_dir)
-					if f.lower().endswith(('.png', '.jpg', '.jpeg'))
-				]
-				self.transform = transform
+		transform = transforms.Compose([
+			transforms.Resize((640, 640)),
+			transforms.ToTensor()
+		])
 
-			def __len__(self):
-				return len(self.image_files)
+		image_paths = [
+			os.path.join(dataset_dir, f)
+			for f in os.listdir(dataset_dir)
+			if f.lower().endswith(('.jpg', '.jpeg', '.png'))
+		]
 
-			def __getitem__(self, idx):
-				img_path = self.image_files[idx]
-				image = Image.open(img_path).convert("RGB")  # Ensure RGB format
-				if self.transform:
-					image = self.transform(image)
-				return image
-
-		# Define a transform to resize the images
-		resize = transforms.Resize((640, 640))
-
-		# Apply the transform to your dataset
-		dataset = FlatImageDataset(dataset_dir, transform=resize)
-
-		# Create the DataLoader
-		dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
-
-		# Initialize sums
-		total_sum = torch.zeros(3, dtype=torch.double)
-		total_squared_sum = torch.zeros(3, dtype=torch.double)
+		total_sum = torch.zeros(3)
+		total_squared_sum = torch.zeros(3)
 		total_pixels = 0
 
-		# Iterate through the dataset
-		for images in tqdm(dataloader, desc="Calculating mean and std"):
-			total_sum += images.sum(dim=[0, 2, 3]).double()  # Accumulate sum
-			total_squared_sum += (images ** 2).sum(dim=[0, 2, 3]).double()  # Accumulate squared sum
-			total_pixels += images.size(0) * images.size(2) * images.size(3)  # Count total pixels
+		for path in tqdm(image_paths, desc="Processing images"):
+			image = Image.open(path).convert("RGB")
+			tensor = transform(image)
+			total_sum += tensor.sum(dim=[1, 2])
+			total_squared_sum += (tensor ** 2).sum(dim=[1, 2])
+			total_pixels += tensor.shape[1] * tensor.shape[2]
 
+		mean = total_sum / total_pixels
+		std = (total_squared_sum / total_pixels - mean ** 2).sqrt()
 
-			# Calculate mean and std
-			mean = total_sum / total_pixels
-			std = (total_squared_sum / total_pixels - mean ** 2).sqrt()
-
-			return mean.tolist(), std.tolist()
+		return mean.tolist(), std.tolist()
 
 	def get_cfg(self):
 		return self.cfg
