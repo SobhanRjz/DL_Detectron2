@@ -3,11 +3,11 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 import numpy as np
 from sklearn.cluster import KMeans
-from Config.basic_config import DATA_PATH
+# from Config.basic_config import DATA_PATH
 import os
 class COCOAnalyzer:
     def __init__(self):
-        annotation_file = os.path.join(DATA_PATH, "Final.json")
+        annotation_file = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\MergeData(1-8)\Final.json" #os.path.join(DATA_PATH, "Final.json")
         self.annotation_file = annotation_file
         self.coco_data = None
         self.categories = None

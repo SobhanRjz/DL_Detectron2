@@ -92,9 +92,9 @@ class SAM2PolygonConverter:
         self.predictor = SAM2ImagePredictor(self.sam2_model)
         
         # Set paths
-        self.folder_images = Path(r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\7.divide-data_1X.v1-camere_pipe_75-25.coco\combined")
+        self.folder_images = Path(r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\8.sewer-final.v3i.coco\combined")
         self.final_json_modify_path = self.folder_images / "Final_Pro_Polygon.json"
-        self.final_json_path = self.folder_images / "II_FixAnnotation_annotations.coco.json"
+        self.final_json_path = self.folder_images / "Final_Pro_Polygon_backup_20250418_180500.json"
         self.checkpoint_path = self.folder_images / "annotation_checkpoint.txt"
         
         # Point visualization params
@@ -343,7 +343,7 @@ class SAM2PolygonConverter:
                         total_points = len(annotation['segmentation'][0]) // 2  # Each point has x,y coords
                     
                     if total_points > 50:
-                        logger.info(f"Annotation {ann_idx+1} already has complex segmentation with {total_points} points, skipping")
+                        # logger.info(f"Annotation {ann_idx+1} already has complex segmentation with {total_points} points, skipping")
                         continue
             
             bbox = annotation['bbox']
@@ -979,7 +979,8 @@ class SAM2PolygonConverter:
                               float(x2), float(y2), float(x1), float(y2)]
                 
                 if annotation['segmentation'] == [bbox_polygon]:
-                    logger.info(f"Annotation {ann_idx+1} has basic bbox segmentation, processing it")
+                    pass
+                    # logger.info(f"Annotation {ann_idx+1} has basic bbox segmentation, processing it")
                 else:
                     # Skip non-bbox segmentations
                     if isinstance(annotation['segmentation'], list) and len(annotation['segmentation']) > 0:
@@ -1101,7 +1102,7 @@ if __name__ == "__main__":
     
     # Check if automatic mode is requested via command line
     automatic_mode = "--auto" in sys.argv
-    automatic_mode = False
+    automatic_mode = True
     if automatic_mode:
         logger.info("Running in automatic mode - no UI will be shown")
         

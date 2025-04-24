@@ -2,7 +2,6 @@ import os
 import shutil
 import json
 from collections import defaultdict
-from mergeTrainTestFile import DatasetPaths
 from pathlib import Path
 from PIL import Image
 RootPath = 'C:/Users/sobha/Desktop/detectron2/Data/RoboFlowData'
@@ -11,11 +10,15 @@ base_folders = [
     Path(RootPath) / '1.petro.v7i.coco',
     Path(RootPath) / '2. PipeMonitor.v1i.coco', 
     Path(RootPath) / '3.culv_data_6_class.v5i.coco',
-    Path(RootPath) / '4.aaaaaaaa.v2i.coco'
+    Path(RootPath) / '4.aaaaaaaa.v2i.coco',
+    Path(RootPath) / '5.pipeline.v1i.coco-segmentation',
+    Path(RootPath) / '6.Concrete Crack Ver.1.v3i.coco-segmentation',
+    Path(RootPath) / '7.divide-data_1X.v1-camere_pipe_75-25.coco',
+    Path(RootPath) / '8.sewer-final.v3i.coco'
 ]
 
 # Output paths
-output_folder = Path(RootPath) / 'MergeData(1-4)'
+output_folder = Path(RootPath) / 'MergeData(1-8)'
 output_images_folder = output_folder / 'images'
 output_annotation_file = output_folder / 'Final.json'
 
@@ -119,6 +122,6 @@ for folder in base_folders:
 
 # Save the merged annotations to the output file
 with open(output_annotation_file, 'w') as f:
-    json.dump(merged_annotations, f, indent=4)
+    json.dump(merged_annotations, f)
 
 print(f"Merged images and annotations saved to {output_folder}")

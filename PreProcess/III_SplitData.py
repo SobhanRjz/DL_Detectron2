@@ -139,9 +139,9 @@ class DatasetSplitter:
         print(f"{split_name} split created with {len(split_images)} images and {len(split_annotations)} annotations")
 
 def main():
-    annotation_file = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\MergeData(1-4)\Final_modified.json"
-    image_dir = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\MergeData(1-4)\images_modified"
-    output_dir = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\MergeData(1-4)\split_dataset"
+    annotation_file = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\MergeData(1-8)\Final_modified.json"
+    image_dir = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\MergeData(1-8)\images_modified"
+    output_dir = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\MergeData(1-8)\split_dataset"
     
     splitter = DatasetSplitter(annotation_file, image_dir, output_dir)
     splitter.split_dataset()

@@ -118,7 +118,7 @@ class ImageCleaner:
         
     def _save_json(self, path, data):
         with open(path, "w") as f:
-            json.dump(data, f, indent=4)
+            json.dump(data, f)
         print(f"Saved annotations to {path}")
         
     def update_annotations_with_bbox(self):
@@ -168,6 +168,35 @@ class ImageCleaner:
         
         print(f"Unique categories: {[cat['name'] for cat in unique_categories]}")
 
+    def reindex_image_ids(self):
+        """
+        Reindex all image_id values in annotations to ensure they match the image IDs.
+        This ensures consistency between image IDs and their references in annotations.
+        """
+        print("Reindexing image IDs in annotations...")
+        
+        # Create a mapping from old image IDs to new sequential IDs
+        old_to_new_image_id = {}
+        for new_id, image in enumerate(self.data['images'], 1):
+            old_to_new_image_id[image['id']] = new_id
+            image['id'] = new_id
+        
+        # Update all annotations with the new image IDs
+        # Filter out annotations with non-existent image IDs and update valid ones
+        valid_annotations = []
+        for annotation in self.data['annotations']:
+            old_id = annotation['image_id']
+            if old_id in old_to_new_image_id:
+                annotation['image_id'] = old_to_new_image_id[old_id]
+                valid_annotations.append(annotation)
+            else:
+                print(f"Removing annotation with non-existent image ID: {old_id}")
+        
+        self.data['annotations'] = valid_annotations
+        
+        self._save_annotations()
+        
+        print(f"Reindexed {len(old_to_new_image_id)} image IDs in {len(self.data['annotations'])} annotations")
     def _load_json(self, path):
         with open(path) as f:
             return json.load(f)
@@ -175,8 +204,8 @@ class ImageCleaner:
 if __name__ == "__main__":
     cleaner = ImageCleaner()
     basic_annotation_path = cleaner.paths.output / "I_Basic_annotations.coco.json"
-    manual_annotation_path = cleaner.paths.output / "II_annotations.coco.json" # Should be annotatated by your own
-
+    manual_annotation_path = cleaner.paths.output / "final.json" # Should be annotatated by your own
+    manual_annotation_path = Path(r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\8.sewer-final.v3i.coco\combined\final.json")
     if not manual_annotation_path.exists():
         cleaner.data = cleaner._load_json(basic_annotation_path)
         cleaner.update_uniqueCategory()
@@ -186,5 +215,7 @@ if __name__ == "__main__":
         cleaner.convert_rectangles_to_polygons()
     else:
         cleaner.data = cleaner._load_json(manual_annotation_path)
+        cleaner.reindex_image_ids()
         #cleaner.remove_unannotated_images(ShouldDeletePic=False)
-        cleaner.update_annotations_with_bbox()
+        # cleaner.update_annotations_with_bbox()
+

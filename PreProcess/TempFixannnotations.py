@@ -377,9 +377,9 @@ def visualize_dimension_distribution(widths: List[float], heights: List[float]) 
     logger.info(f"Saved dimension distribution visualization to segmentation_dimension_distribution.png")
 
 if __name__ == "__main__":
-    input_file = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\5.pipeline.v1i.coco-segmentation\combined\V_Sam2Annotation.json"
-    output_file = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\5.pipeline.v1i.coco-segmentation\combined\V_Sam2Annotation_filtered.json"
-    images_dir = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\5.pipeline.v1i.coco-segmentation\combined\images"
+    input_file = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\8.sewer-final.v3i.coco\combined\IV_ManualAnnotation.json"
+    output_file = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\8.sewer-final.v3i.coco\combined\IV_ManualAnnotation_filtered.json"
+    images_dir = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\8.sewer-final.v3i.coco\combined\images"
     
     # Filter small segmentations with a threshold of 100 square pixels
     filter_small_segmentations(

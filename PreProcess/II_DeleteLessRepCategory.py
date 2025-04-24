@@ -143,7 +143,7 @@ class CategoryDeleter:
         print(f"Copied {copied_count} images to {target_image_dir}")
 def main():
     # Example usage
-    annotation_file = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\MergeData(1-4)\Final.json"
+    annotation_file = r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\MergeData(1-8)\Final.json"
     categories_to_delete = ["Vermin", "Junction", "Hole", "Sealing Ring"]
     
     deleter = CategoryDeleter(annotation_file)
