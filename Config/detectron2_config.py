@@ -21,7 +21,8 @@ class DetectronConfig:
 		numberOfImages = len(DatasetCatalog.get("my_dataset_train")) * (2) # 2 is the number of times the dataset is repeated change base on your augmentation
 		batches_per_epoch = numberOfImages / self.IMS_PER_BATCH
 		self.max_iter = int(self.EPOCH * batches_per_epoch)
-		self.max_iter = int(50000)
+		#self.max_iter = int(50000)
+		print(f"Max Iterations ***** : {self.max_iter}")
 		self.dataset_dicts = DatasetCatalog.get("my_dataset_train") # traindata set
 		self.anchor_boxes = self._calculate_anchor_boxes()
 		self.kmeans_ratios = self._calculate_anchor_ratios()
