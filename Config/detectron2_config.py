@@ -15,7 +15,7 @@ class DetectronConfig:
 	# Global class variables
 	N_CLUSTER = 5  # set base ROI Head layer number
 	EPOCH = 20
-	IMS_PER_BATCH = 2
+	IMS_PER_BATCH = 24
 	
 	def __init__(self):
 		numberOfImages = len(DatasetCatalog.get("my_dataset_train")) * (2) # 2 is the number of times the dataset is repeated change base on your augmentation
@@ -315,7 +315,7 @@ class DetectronConfig:
 		
 		print(f"Calculated Anchor Ratios: {anchor_ratios}")
 		return Aspect
-	def calculate_mean_std(dataset_dir):
+	def _calculate_mean_and_std(self, dataset_dir):
 		"""
 		Calculate mean and std of RGB channels for images in a folder.
 
