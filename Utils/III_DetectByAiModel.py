@@ -50,7 +50,7 @@ class DefectDetector:
         init_start = time.time()
         self.paths = DatasetPaths()
 
-        self.JsonPath = self.paths.BasePath  / "combined" / "II_FixAnnotation_annotations.coco.json"
+        self.JsonPath = self.paths.BasePath  / "combined" / "IV_ManualAnnotation_filtered.json"
         self.JsonData =self._load_json(self.JsonPath)
         # Configure logging
         logging.basicConfig(level=logging.INFO)
@@ -261,13 +261,46 @@ class DefectDetector:
                 continue  # Skip if no valid segmentation
 
 
+            # Check if bbox coordinates are within image boundaries
+            height, width = mask.shape
+            
+            # Ensure bbox coordinates are within image boundaries
+            x1, y1, w, h = bbox
+            x2, y2 = x1 + w, y1 + h
+            
+            # Clamp coordinates to image boundaries
+            x1 = max(0, min(x1, width - 1))
+            y1 = max(0, min(y1, height - 1))
+            x2 = max(0, min(x2, width - 1))
+            y2 = max(0, min(y2, height - 1))
+            
+            # Recalculate width and height after clamping
+            w = max(0, x2 - x1)
+            h = max(0, y2 - y1)
+            
+            # Update bbox with valid coordinates
+            bbox = np.array([x1, y1, w, h])
+            
+            # Skip detection if bbox is too small after clamping
+            if w < 1 or h < 1:
+                continue
+            _UseSegmentation = False
+            if not _UseSegmentation:
+                # Create a simple box segmentation using the bbox coordinates
+                # Ensure all values are JSON serializable (float or int)
+                segmentation = [[float(bbox[0]), float(bbox[1]), 
+                                float(bbox[0]+bbox[2]), float(bbox[1]), 
+                                float(bbox[0]+bbox[2]), float(bbox[1]+bbox[3]), 
+                                float(bbox[0]), float(bbox[1]+bbox[3])]]
+                
+            # Ensure all values in the detection dictionary are JSON serializable
             detection = {
-                "bbox": bbox.tolist(),  # [x1, y1, x2, y2]
-                "class": self.metadata.thing_classes[class_id],
-                "confidence": float(score),
-                "frame_time": time.time() - preprocess_start,
-                "timestamp_seconds": timestamp,
-                "segmentation": segmentation  # Save the segmentation mask
+                "bbox": [float(x) for x in bbox.tolist()],  # Convert numpy values to Python floats
+                "class": str(self.metadata.thing_classes[class_id]),  # Ensure string
+                "confidence": float(score),  # Already float
+                "frame_time": float(time.time() - preprocess_start),
+                "timestamp_seconds": float(timestamp),
+                "segmentation": segmentation  # Already converted to float values
             }
             detection_data.append(detection)
             
@@ -311,8 +344,8 @@ def main():
             [128, 128, 128],  # Gray - Surface Damage
             [128, 0, 128]     # Purple - Root
         ],
-        model_path=os.path.join(r"AIModels", "model_final.pth"),
-        config_path=os.path.join(r"AIModels", "mask_rcnn_X_101_32x8d_FPN_3x.yaml")
+        model_path=os.path.join(r"AIModels", r"Model V.2.8.0", "model_final.pth"),
+        config_path=os.path.join(r"AIModels", r"Model V.2.8.0", "mask_rcnn_X_101_32x8d_FPN_3x.yaml")
     )
 
     # Initialize detector

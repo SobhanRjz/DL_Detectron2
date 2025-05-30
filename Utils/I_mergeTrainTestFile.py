@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 @dataclass
 class DatasetPaths:
-    BasePath: Path = Path(r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\8.sewer-final.v3i.coco")
+    BasePath: Path = Path(r"C:\Users\sobha\Desktop\detectron2\Data\RoboFlowData\3.culv_data_6_class.v5i.coco")
     validation: Path = BasePath / "valid"
     train: Path = BasePath / "train" 
     test: Path = BasePath / "test"

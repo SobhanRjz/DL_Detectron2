@@ -171,12 +171,12 @@ class ImageCleaner:
 
 if __name__ == "__main__":
     cleaner = ImageCleaner()
-    basic_annotation_path = cleaner.paths.output / "I_Basic_annotations.coco.json"
+    basic_annotation_path = cleaner.paths.output / "Final.json"
     cleaner.data = cleaner._load_json(basic_annotation_path)
-    cleaner.update_uniqueCategory()
-    cleaner.remove_categories(["tree-sewer-LP-DS-sewer-PJ-sewer-CL-Sewer", "PJ"])
-    cleaner.convert_rectangles_to_polygons()
-    cleaner.update_annotations_with_bbox()
+    # cleaner.update_uniqueCategory()
+    # cleaner.remove_categories(["tree-sewer-LP-DS-sewer-PJ-sewer-CL-Sewer", "PJ"])
+    # cleaner.convert_rectangles_to_polygons()
+    # cleaner.update_annotations_with_bbox()
     cleaner.remove_duplicate_images()
     cleaner.remove_unannotated_images(ShouldDeletePic=True)
 
