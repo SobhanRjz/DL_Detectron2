@@ -1,0 +1,18 @@
+{
+  "trial_number": 16,
+  "accuracy": 100.0,
+  "params": {
+    "learning_rate": 2.5473238948018857e-05,
+    "weight_decay": 5.3681816388428536e-05,
+    "n_shot": 5,
+    "n_query": 1,
+    "n_training_episodes": 261,
+    "validation_frequency": 99,
+    "backbone_name": "resnet50",
+    "freeze_backbone": true,
+    "batch_size": 128
+  },
+  "timestamp": "2025-05-29T17:41:25.529326",
+  "model_path": "outputs/best_model_trial_16/model.pth",
+  "complete_model_path": "outputs/best_model_trial_16/complete_model.pth"
+}

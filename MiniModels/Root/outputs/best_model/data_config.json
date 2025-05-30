@@ -1,0 +1,5 @@
+{
+  "BASE_DIR": "C:/Users/sobha/Desktop/detectron2/Data/Third Names/Roots/Data/",
+  "TRAIN_IMAGE_ROOT": "C:/Users/sobha/Desktop/detectron2/Data/Third Names/Roots/Data/Train",
+  "TEST_IMAGE_ROOT": "C:/Users/sobha/Desktop/detectron2/Data/Third Names/Roots/Data/Test"
+}
