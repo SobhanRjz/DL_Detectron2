@@ -1,0 +1,552 @@
+{
+  "environment": {
+    "timestamp": "2025-05-30T01:08:48.922996",
+    "platform": {
+      "system": "Windows",
+      "release": "10",
+      "version": "10.0.22621",
+      "machine": "AMD64",
+      "processor": "Intel64 Family 6 Model 165 Stepping 2, GenuineIntel",
+      "python_version": "3.10.0"
+    },
+    "hardware": {
+      "cpu_count": 12,
+      "available_memory_gb": 16.991318016,
+      "gpu_count": 1,
+      "gpu_names": [
+        "NVIDIA GeForce GTX 1660 Ti"
+      ],
+      "gpu_memory": [
+        6.442123264
+      ]
+    },
+    "libraries": {
+      "torch": "2.6.0+cu124",
+      "torchvision": "0.21.0+cu124",
+      "numpy": "1.26.4",
+      "optuna": "4.3.0",
+      "easyfsl": "1.5.0"
+    },
+    "pytorch": {
+      "version": "2.6.0+cu124",
+      "cuda_available": true,
+      "cuda_version": "12.4",
+      "cudnn_version": 90100,
+      "cudnn_enabled": true,
+      "num_threads": 6,
+      "num_interop_threads": 6,
+      "current_device": 0,
+      "device_count": 1
+    },
+    "environment_variables": {
+      "CUDA_VISIBLE_DEVICES": "Not set",
+      "PYTHONHASHSEED": "Not set",
+      "OMP_NUM_THREADS": "Not set",
+      "MKL_NUM_THREADS": "Not set",
+      "NUMEXPR_NUM_THREADS": "Not set",
+      "OPENBLAS_NUM_THREADS": "Not set",
+      "VECLIB_MAXIMUM_THREADS": "Not set",
+      "NUMBA_NUM_THREADS": "Not set"
+    },
+    "cuda": {
+      "available": true,
+      "version": "12.4",
+      "device_count": 1,
+      "current_device": 0,
+      "devices": [
+        {
+          "name": "NVIDIA GeForce GTX 1660 Ti",
+          "total_memory": 6442123264,
+          "major": 7,
+          "minor": 5,
+          "multi_processor_count": 24
+        }
+      ]
+    }
+  },
+  "data_consistency": {
+    "dataset_info": {
+      "train_size": 50,
+      "test_size": 20,
+      "train_classes": [
+        "RF",
+        "RM",
+        "RT"
+      ],
+      "test_classes": [
+        "RF",
+        "RM",
+        "RT"
+      ],
+      "train_class_counts": {
+        "RF": 17,
+        "RM": 23,
+        "RT": 10
+      },
+      "test_class_counts": {
+        "RF": 6,
+        "RM": 7,
+        "RT": 7
+      }
+    },
+    "data_loading_test": {
+      "loading_tests": [
+        {
+          "seed": 42,
+          "support_shape": [
+            15,
+            3,
+            224,
+            224
+          ],
+          "query_shape": [
+            3,
+            3,
+            224,
+            224
+          ],
+          "support_labels": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "query_labels": [
+            2,
+            0,
+            1
+          ],
+          "class_ids": [
+            0,
+            1,
+            2
+          ],
+          "support_mean": 0.4882352948188782,
+          "support_std": 0.23135511577129364,
+          "query_mean": 0.4939230978488922,
+          "query_std": 0.27150002121925354
+        },
+        {
+          "seed": 123,
+          "support_shape": [
+            15,
+            3,
+            224,
+            224
+          ],
+          "query_shape": [
+            3,
+            3,
+            224,
+            224
+          ],
+          "support_labels": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1,
+            2,
+            2,
+            2,
+            2,
+            2
+          ],
+          "query_labels": [
+            0,
+            1,
+            2
+          ],
+          "class_ids": [
+            0,
+            1,
+            2
+          ],
+          "support_mean": 0.4398133158683777,
+          "support_std": 0.24978359043598175,
+          "query_mean": 0.4696060121059418,
+          "query_std": 0.2598305344581604
+        },
+        {
+          "seed": 456,
+          "support_shape": [
+            15,
+            3,
+            224,
+            224
+          ],
+          "query_shape": [
+            3,
+            3,
+            224,
+            224
+          ],
+          "support_labels": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            1,
+            1,
+            1,
+            1,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "query_labels": [
+            2,
+            1,
+            0
+          ],
+          "class_ids": [
+            0,
+            1,
+            2
+          ],
+          "support_mean": 0.5078846216201782,
+          "support_std": 0.24460095167160034,
+          "query_mean": 0.47321510314941406,
+          "query_std": 0.2798922061920166
+        }
+      ]
+    },
+    "random_sampling_test": {
+      "sampling_tests": [
+        {
+          "trial": 0,
+          "first_image_hash": -185146734176305472,
+          "labels": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "trial": 1,
+          "first_image_hash": -185146734176305472,
+          "labels": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "trial": 2,
+          "first_image_hash": -185146734176305472,
+          "labels": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            1,
+            1,
+            1,
+            1
+          ]
+        }
+      ],
+      "consistent_sampling": true,
+      "consistent_labels": true
+    },
+    "transform_consistency": {
+      "transform_tests": [
+        {
+          "iteration": 0,
+          "mean": 0.469818115234375,
+          "std": 0.19686709344387054,
+          "shape": [
+            3,
+            224,
+            224
+          ]
+        },
+        {
+          "iteration": 1,
+          "mean": 0.469818115234375,
+          "std": 0.19686709344387054,
+          "shape": [
+            3,
+            224,
+            224
+          ]
+        },
+        {
+          "iteration": 2,
+          "mean": 0.469818115234375,
+          "std": 0.19686709344387054,
+          "shape": [
+            3,
+            224,
+            224
+          ]
+        },
+        {
+          "iteration": 3,
+          "mean": 0.469818115234375,
+          "std": 0.19686709344387054,
+          "shape": [
+            3,
+            224,
+            224
+          ]
+        },
+        {
+          "iteration": 4,
+          "mean": 0.469818115234375,
+          "std": 0.19686709344387054,
+          "shape": [
+            3,
+            224,
+            224
+          ]
+        }
+      ]
+    }
+  },
+  "model_consistency": {
+    "initialization_test": {
+      "initialization_tests": [
+        {
+          "seed": 42,
+          "total_params": 11176512,
+          "trainable_params": 8393728,
+          "first_layer_weights": [
+            -0.011645464226603508,
+            -0.019009733572602272,
+            -0.021876132115721703,
+            0.02048172615468502,
+            0.023961730301380157,
+            0.029161464422941208,
+            0.0436716265976429,
+            0.03327817842364311,
+            0.04990772157907486,
+            -0.007404024247080088
+          ]
+        },
+        {
+          "seed": 123,
+          "total_params": 11176512,
+          "trainable_params": 8393728,
+          "first_layer_weights": [
+            -0.011645464226603508,
+            -0.019009733572602272,
+            -0.021876132115721703,
+            0.02048172615468502,
+            0.023961730301380157,
+            0.029161464422941208,
+            0.0436716265976429,
+            0.03327817842364311,
+            0.04990772157907486,
+            -0.007404024247080088
+          ]
+        },
+        {
+          "seed": 456,
+          "total_params": 11176512,
+          "trainable_params": 8393728,
+          "first_layer_weights": [
+            -0.011645464226603508,
+            -0.019009733572602272,
+            -0.021876132115721703,
+            0.02048172615468502,
+            0.023961730301380157,
+            0.029161464422941208,
+            0.0436716265976429,
+            0.03327817842364311,
+            0.04990772157907486,
+            -0.007404024247080088
+          ]
+        }
+      ]
+    },
+    "weight_consistency": {
+      "same_seed_weights_match": true,
+      "model1_param_count": 11176512,
+      "model2_param_count": 11176512
+    },
+    "forward_pass_test": {
+      "forward_pass_tests": [
+        {
+          "pass": 0,
+          "output_mean": -2.445164680480957,
+          "output_std": 0.2523408830165863,
+          "output_shape": [
+            3,
+            3
+          ]
+        },
+        {
+          "pass": 1,
+          "output_mean": -2.445164680480957,
+          "output_std": 0.2523408830165863,
+          "output_shape": [
+            3,
+            3
+          ]
+        },
+        {
+          "pass": 2,
+          "output_mean": -2.445164680480957,
+          "output_std": 0.2523408830165863,
+          "output_shape": [
+            3,
+            3
+          ]
+        }
+      ],
+      "outputs_consistent": true
+    }
+  },
+  "accuracy_tests": {
+    "multiple_runs": {
+      "results": [
+        {
+          "run": 0,
+          "accuracy": 85.0,
+          "success": true
+        },
+        {
+          "run": 1,
+          "accuracy": 85.0,
+          "success": true
+        },
+        {
+          "run": 2,
+          "accuracy": 85.0,
+          "success": true
+        }
+      ],
+      "statistics": {
+        "mean_accuracy": 85.0,
+        "std_accuracy": 0.0,
+        "min_accuracy": 85.0,
+        "max_accuracy": 85.0,
+        "accuracy_range": 0.0
+      },
+      "successful_runs": 3,
+      "total_runs": 3
+    },
+    "different_seeds": {
+      "results": [
+        {
+          "seed": 42,
+          "accuracy": 85.0,
+          "success": true
+        },
+        {
+          "seed": 123,
+          "accuracy": 88.33333333333333,
+          "success": true
+        },
+        {
+          "seed": 456,
+          "accuracy": 88.33333333333333,
+          "success": true
+        },
+        {
+          "seed": 789,
+          "accuracy": 83.33333333333333,
+          "success": true
+        },
+        {
+          "seed": 999,
+          "accuracy": 73.33333333333333,
+          "success": true
+        }
+      ],
+      "statistics": {
+        "mean_accuracy": 83.66666666666666,
+        "std_accuracy": 5.517648452415616,
+        "min_accuracy": 73.33333333333333,
+        "max_accuracy": 88.33333333333333,
+        "seed_sensitivity": 5.517648452415616
+      },
+      "tested_seeds": [
+        42,
+        123,
+        456,
+        789,
+        999
+      ]
+    },
+    "device_tests": {
+      "device_tests": [
+        {
+          "device": "cpu",
+          "accuracy": 76.66666666666667,
+          "success": true
+        },
+        {
+          "device": "cuda",
+          "accuracy": 76.66666666666667,
+          "success": true
+        }
+      ]
+    }
+  },
+  "analysis": {
+    "potential_causes": [
+      {
+        "cause": "High seed sensitivity",
+        "description": "Model accuracy varies significantly with different random seeds",
+        "severity": "medium"
+      }
+    ],
+    "recommendations": [
+      "Use multiple seeds and average results for more stable evaluation"
+    ],
+    "environment_differences": []
+  }
+}
