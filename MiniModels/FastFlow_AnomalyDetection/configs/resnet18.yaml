@@ -1,0 +1,7 @@
+input_size: 256
+backbone_name: resnet18
+flow_step: 8
+hidden_ratio: 1.0
+conv3x3_only: True
+# Optional: Path to local pretrained backbone (set to null to download)
+pretrained_backbone_path: _fastflow_experiment_checkpoints\exp24\resnet18.pth  # e.g., "pretrained_backbones/resnet18.pth"
