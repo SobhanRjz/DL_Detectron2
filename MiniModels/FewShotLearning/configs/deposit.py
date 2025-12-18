@@ -14,7 +14,7 @@ def get_config() -> tuple[ModelConfig, DataConfig]:
         backbone="resnet18",
         pretrained=True,
         freeze_backbone=True,
-        n_way=2,  # Crack vs Fracture
+        n_way=4,  # DES, DEC, DEG, DEE
         n_shot=2,
         n_query=1,
         n_training_episodes=500,
@@ -22,11 +22,11 @@ def get_config() -> tuple[ModelConfig, DataConfig]:
         random_seed=42,
     )
     
-    base_dir = r"C:\Users\sobha\Desktop\detectron2\Code\Implement Detectron 2\MiniModels"
+    base_dir = r"C:\Users\sobha\Desktop\detectron2\Code\Implement Detectron 2\MiniModels\FewShotLearning"
     data_config = DataConfig(
-        train_root=os.path.join(base_dir, "datasets", "Crack", "Train"),
-        test_root=os.path.join(base_dir, "datasets", "Crack", "Test"),
-        output_root="output/crack",
+        train_root=os.path.join(base_dir, "datasets", "Deposit", "Train"),
+        test_root=os.path.join(base_dir, "datasets", "Deposit", "Test"),
+        output_root="output/deposit",
     )
     
     return model_config, data_config

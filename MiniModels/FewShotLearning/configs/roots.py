@@ -17,12 +17,12 @@ def get_config(n_shot: int = 2) -> tuple[ModelConfig, DataConfig]:
         n_way=3, # root mass, root tap, root fine
         n_shot=n_shot,  # 2 shots per class
         n_query=1,
-        n_training_episodes=200,
+        n_training_episodes=500,
         learning_rate=0.0001,
         random_seed=42,
     )
     
-    base_dir = r"C:\Users\sobha\Desktop\detectron2\Code\Implement Detectron 2\MiniModels"
+    base_dir = r"C:\Users\sobha\Desktop\detectron2\Code\Implement Detectron 2\MiniModels\FewShotLearning"
     data_config = DataConfig(
         train_root=os.path.join(base_dir, "datasets",  "Root", "Train"),
         test_root=os.path.join(base_dir, "datasets", "Root",  "Test"),

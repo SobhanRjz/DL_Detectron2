@@ -1,6 +1,6 @@
 """Model-specific configurations."""
 
-from . import roots, cracks
+from . import roots, deposit
 
-__all__ = ["roots", "cracks"]
+__all__ = ["roots", "deposit"]
 
