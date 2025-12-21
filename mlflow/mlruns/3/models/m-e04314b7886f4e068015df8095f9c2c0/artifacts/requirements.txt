@@ -1,0 +1,12 @@
+mlflow==3.7.0
+astunparse==1.6.3
+av==14.0.1
+cloudpickle==3.1.0
+defusedxml==0.7.1
+easyfsl==1.5.0
+numpy==2.2.6
+optree==0.13.0
+optuna==4.3.0
+pandas==2.2.3
+redis==3.5.3
+torch==2.6.0

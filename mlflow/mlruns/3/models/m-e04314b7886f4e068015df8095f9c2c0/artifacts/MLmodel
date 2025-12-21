@@ -1,0 +1,24 @@
+artifact_path: file:///C:/Users/sobha/Desktop/detectron2/Code/Implement Detectron
+  2/mlruns/3/models/m-e04314b7886f4e068015df8095f9c2c0/artifacts
+flavors:
+  python_function:
+    config:
+      device: null
+    data: data
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pytorch
+    pickle_module_name: mlflow.pytorch.pickle_module
+    python_version: 3.10.2
+  pytorch:
+    code: null
+    model_data: data
+    pytorch_version: 2.6.0+cu124
+mlflow_version: 3.7.0
+model_id: m-e04314b7886f4e068015df8095f9c2c0
+model_size_bytes: 44790822
+model_uuid: m-e04314b7886f4e068015df8095f9c2c0
+prompts: null
+run_id: e5bc948ef31548fb807af578a35b16f2
+utc_time_created: '2025-12-21 13:58:37.722861'

@@ -1,0 +1,16 @@
+# Core dependencies
+torch>=1.9.0
+torchvision>=0.10.0
+easyfsl>=1.4.0
+optuna>=3.0.0
+numpy>=1.21.0
+pillow>=8.0.0
+tqdm>=4.62.0
+
+# MLflow for experiment tracking
+mlflow>=2.0.0
+mlflow[pytorch]>=2.0.0
+
+# Optional: for better logging
+matplotlib>=3.5.0
+seaborn>=0.11.0

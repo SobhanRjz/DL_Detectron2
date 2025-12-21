@@ -6,7 +6,7 @@ yarn.lock
 # Build outputs
 dist/
 build/
-output/
+output/*
 DataSets/images/*
 
 # Environment variables 
@@ -52,6 +52,9 @@ htmlcov/
 venv/
 ENV/
 env/ 
-Implement Detectron 2.zip
-*pth
+*.pth
 *.zip
+
+!**/output/**/*.pth
+
+

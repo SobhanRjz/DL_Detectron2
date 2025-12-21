@@ -1,7 +1,7 @@
 """Configuration for root classification (Root mass, Root tap, Root fine)."""
 
 import os
-from fsl.core import ModelConfig, DataConfig
+from src.core import ModelConfig, DataConfig
 
 
 def get_config(n_shot: int = 2) -> tuple[ModelConfig, DataConfig]:
@@ -26,7 +26,7 @@ def get_config(n_shot: int = 2) -> tuple[ModelConfig, DataConfig]:
     data_config = DataConfig(
         train_root=os.path.join(base_dir, "datasets",  "Root", "Train"),
         test_root=os.path.join(base_dir, "datasets", "Root",  "Test"),
-        output_root="MiniModels/output/root",
+        output_root="MiniModels\\FewShotLearning\\output\\root",
     )
     
     return model_config, data_config

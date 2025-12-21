@@ -1,7 +1,7 @@
 """Configuration for crack classification (Crack vs Fracture)."""
 
 import os
-from fsl.core import ModelConfig, DataConfig
+from src.core import ModelConfig, DataConfig
 
 
 def get_config() -> tuple[ModelConfig, DataConfig]:
@@ -26,7 +26,7 @@ def get_config() -> tuple[ModelConfig, DataConfig]:
     data_config = DataConfig(
         train_root=os.path.join(base_dir, "datasets", "Deposit", "Train"),
         test_root=os.path.join(base_dir, "datasets", "Deposit", "Test"),
-        output_root="output/deposit",
+        output_root="MiniModels\\FewShotLearning\\output\\deposit",
     )
     
     return model_config, data_config

@@ -9,8 +9,8 @@ from PIL import Image
 root_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(root_dir))
 
-from fsl.core import ModelFactory
-from fsl.utils import get_device
+from src.core import ModelFactory
+from src.utils import get_device
 from configs import roots
 
 

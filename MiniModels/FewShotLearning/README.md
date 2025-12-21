@@ -41,8 +41,51 @@ pipeline.save_model("outputs/model.pth")
 
 Or via command line:
 ```bash
-python scripts/train.py
+python scripts/train.py --config roots
 ```
+
+### Hyperparameter Optimization with MLflow Tracking
+
+The library includes built-in hyperparameter optimization with MLflow experiment tracking:
+
+```bash
+# Install MLflow
+pip install mlflow mlflow[pytorch]
+
+# Run hyperparameter optimization with MLflow tracking
+python scripts/train.py --config deposit --optimize-hyperparams --n-trials 50
+
+# Specify MLflow tracking server (optional)
+python scripts/train.py --config roots --optimize-hyperparams \
+    --mlflow-tracking-uri "http://localhost:5000"
+```
+
+## Run mlflow server
+mlflow server --host 127.0.0.1 --port 5000 `
+  --backend-store-uri "sqlite:///mlflow/mlflow.db" `
+  --default-artifact-root "file:///mlflow/mlartifacts"
+
+
+### MLflow Features
+
+- **Automatic experiment tracking**: Each optimization trial is logged as an MLflow run
+- **Parameter and metric logging**: All hyperparameters, accuracy, model size, and inference time
+- **Best model logging**: Only the best-performing model is saved to MLflow model registry
+- **Run comparison**: Compare all trials in the MLflow UI
+- **Experiment organization**: Automatic experiment naming based on dataset and n-way
+
+### Viewing Results
+
+Start MLflow UI to view experiments:
+```bash
+mlflow ui
+```
+
+Navigate to `http://localhost:5000` to see:
+- All optimization trials with their parameters and metrics
+- Best model performance comparison
+- Model artifacts and metadata
+- Interactive plots and comparisons
 
 ### Adding a New Model
 
