@@ -40,7 +40,7 @@ def parse_arguments() -> argparse.Namespace:
         "--config",
         type=str,
         default="roots",
-        choices=["roots", "deposit"],
+        choices=["roots", "deposit", "crack_fracture"],
         help="Configuration module to use (default: roots)"
     )
 
@@ -169,7 +169,6 @@ def optimize_hyperparameters(
     logger.info(f"   Final Accuracy: {best_accuracy:.2f}%")
     logger.info(f"   Learning Rate: {results['best_params']['learning_rate']:.2e}")
     logger.info(f"   Weight Decay: {results['best_params']['weight_decay']:.2e}")
-    logger.info(f"   Training Episodes: {results['best_params']['n_training_episodes']}")
     logger.info(f"   N-Shot: {results['best_params']['n_shot']}, N-Query: {results['best_params']['n_query']}")
     logger.info(f"   Backbone: {results['best_params']['backbone']} (freeze: {results['best_params']['freeze_backbone']})")
 
@@ -369,6 +368,7 @@ def run_hyperparameter_optimization(
 
     # Apply best parameters to config
     optimizer = HyperparameterOptimizer(model_config, data_config)
+    results['best_params']['n_training_episodes'] = 100
     updated_config = optimizer.apply_best_params_to_config(results['best_params'])
 
     logger.info("Training with optimized hyperparameters")
@@ -511,15 +511,15 @@ def main() -> None:
     args = parse_arguments()
 
     # Override with specific configuration (TODO: Make this configurable)
-    args.config = "roots" # deposit, roots
+    args.config = "crack_fracture" # deposit, roots, crack_fracture
     args.study_name = ""
-    args.n_trials = 50
+    args.n_trials = 30
     args.mlflow_tracking_uri = "http://127.0.0.1:5000"
     args.load_best_from_mlflow = True
     args.optimize_hyperparams = True
     args.register_model = False
     args.load_best_from_mlflow_run_id = True
-    args.best_from_mlflow_run_id = "5f0baed180934329966ebf4aa5165d1b"
+    args.best_from_mlflow_run_id = "a7c14fbf1b35454d9a89360865b7e0c9"
 
     try:
         # Set up configuration

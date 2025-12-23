@@ -1,6 +1,7 @@
 """Prototypical Networks implementation."""
 
 import torch
+import torch.nn.functional as F
 from torch import nn
 from torchvision.models import resnet18, resnet34, resnet50
 
@@ -24,9 +25,10 @@ class PrototypicalNetwork(nn.Module):
             self._freeze_backbone()
     
     def _freeze_backbone(self) -> None:
-        """Freeze all layers except layer4 and final layers."""
+        """Freeze all layers except the last residual block for adaptation."""
         for name, param in self.backbone.named_parameters():
-            param.requires_grad = 'layer4' in name or 'fc' in name or 'classifier' in name
+            # Unfreeze layer4 (last residual block) for few-shot adaptation
+            param.requires_grad = 'layer4' in name
 
     def forward(
         self,
@@ -47,16 +49,23 @@ class PrototypicalNetwork(nn.Module):
         z_support = self.backbone(support_images)
         z_query = self.backbone(query_images)
 
+        # CRITICAL: Normalize embeddings for stable distance computations
+        z_support = F.normalize(z_support, dim=1)
+        z_query = F.normalize(z_query, dim=1)
+
         n_way = len(torch.unique(support_labels))
-        
+
         prototypes = []
         for label in range(n_way):
             class_mask = (support_labels == label)
             prototypes.append(z_support[class_mask].mean(dim=0))
-        
+
         z_proto = torch.stack(prototypes, dim=0)
+        # Normalize prototypes too for consistency
+        z_proto = F.normalize(z_proto, dim=1)
+
         dists = torch.cdist(z_query, z_proto)
-        
+
         return -dists
 
 

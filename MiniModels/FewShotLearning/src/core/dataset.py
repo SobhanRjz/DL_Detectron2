@@ -54,18 +54,29 @@ class DatasetManager:
         self.data_config = data_config
         self.model_config = model_config
         
-        self.transform = transforms.Compose([
+        # Minimal transforms for few-shot learning (episodic training)
+        # CRITICAL: Avoid random augmentations that break support-query distribution matching
+        base_transforms = [
             transforms.Resize(model_config.image_size),
             transforms.ToTensor(),
-        ])
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ]
+
+        # Use same transforms for both train and test to maintain consistency
+        # Only very weak deterministic augmentations allowed in few-shot learning
+        self.train_transform = transforms.Compose(base_transforms)
+        self.test_transform = transforms.Compose(base_transforms)
+
+        # Use augmented transforms for training, basic for testing
+        self.transform = self.train_transform  # For backward compatibility
         
         self.train_set = PicklableImageFolder(
             root=data_config.train_root,
-            transform=self.transform
+            transform=self.train_transform
         )
         self.test_set = PicklableImageFolder(
             root=data_config.test_root,
-            transform=self.transform
+            transform=self.test_transform
         )
     
     def _create_task_sampler(

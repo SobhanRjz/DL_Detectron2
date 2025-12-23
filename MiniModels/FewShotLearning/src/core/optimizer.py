@@ -233,9 +233,7 @@ class HyperparameterOptimizer:
             'weight_decay', 1e-6, 1e-2, log=True
         )
 
-        config.n_training_episodes = trial.suggest_int(
-            'n_training_episodes', 50, 100, step=25
-        )
+        config.n_training_episodes = 100
 
         # Backbone selection
         backbone_name = trial.suggest_categorical('backbone', self.backbone_options)
@@ -463,7 +461,6 @@ class HyperparameterOptimizer:
             self.logger.info("Best Hyperparameters:")
             self.logger.info(f"   Learning Rate: {self.study.best_params['learning_rate']:.2e}")
             self.logger.info(f"   Weight Decay: {self.study.best_params['weight_decay']:.2e}")
-            self.logger.info(f"   Training Episodes: {self.study.best_params['n_training_episodes']}")
             self.logger.info(f"   Backbone: {self.study.best_params['backbone']}")
             self.logger.info(f"   Freeze Backbone: {self.study.best_params['freeze_backbone']}")
             self.logger.info(f"   N-Shot: {self.study.best_params['n_shot']}")
@@ -504,7 +501,7 @@ class HyperparameterOptimizer:
                 mlflow.log_params({
                     "learning_rate": best_config.learning_rate,
                     "weight_decay": best_config.weight_decay,
-                    "n_training_episodes": best_config.n_training_episodes,
+                    "n_training_episodes": 100,
                     "backbone": best_config.backbone,
                     "freeze_backbone": best_config.freeze_backbone,
                     "n_shot": best_config.n_shot,
