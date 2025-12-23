@@ -40,7 +40,7 @@ def parse_arguments() -> argparse.Namespace:
         "--config",
         type=str,
         default="roots",
-        choices=["roots", "deposit", "crack_fracture"],
+        choices=["roots", "deposit", "crack_fracture", "joint_disp"],
         help="Configuration module to use (default: roots)"
     )
 
@@ -511,15 +511,15 @@ def main() -> None:
     args = parse_arguments()
 
     # Override with specific configuration (TODO: Make this configurable)
-    args.config = "crack_fracture" # deposit, roots, crack_fracture
+    args.config = "joint_disp" # deposit, roots, crack_fracture, joint_disp
     args.study_name = ""
-    args.n_trials = 30
+    args.n_trials = 50
     args.mlflow_tracking_uri = "http://127.0.0.1:5000"
     args.load_best_from_mlflow = True
     args.optimize_hyperparams = True
     args.register_model = False
     args.load_best_from_mlflow_run_id = True
-    args.best_from_mlflow_run_id = "a7c14fbf1b35454d9a89360865b7e0c9"
+    args.best_from_mlflow_run_id = "0339728f33b24a769a44c5286a7d6c21"
 
     try:
         # Set up configuration
