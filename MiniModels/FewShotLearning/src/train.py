@@ -40,7 +40,7 @@ def parse_arguments() -> argparse.Namespace:
         "--config",
         type=str,
         default="roots",
-        choices=["roots", "deposit", "crack_fracture", "joint_disp"],
+        choices=["roots", "deposit", "crack_fracture", "joint_disp", "cr_fr_br_col_hol"],
         help="Configuration module to use (default: roots)"
     )
 
@@ -131,7 +131,7 @@ def load_config_module(config_name: str) -> Any:
         return module
     except ImportError as e:
         print(f"Error loading config module '{config_name}': {e}")
-        print("Available configs: roots, deposit")
+        print("Available configs: roots, deposit, crack_fracture, joint_disp, cr_fr_br_col_hol")
         sys.exit(1)
 
 
@@ -511,7 +511,7 @@ def main() -> None:
     args = parse_arguments()
 
     # Override with specific configuration (TODO: Make this configurable)
-    args.config = "joint_disp" # deposit, roots, crack_fracture, joint_disp
+    args.config = "cr_fr_br_col_hol" # deposit, roots, crack_fracture, joint_disp, cr_fr_br_col_hol
     args.study_name = ""
     args.n_trials = 50
     args.mlflow_tracking_uri = "http://127.0.0.1:5000"
@@ -519,7 +519,7 @@ def main() -> None:
     args.optimize_hyperparams = True
     args.register_model = False
     args.load_best_from_mlflow_run_id = True
-    args.best_from_mlflow_run_id = "0339728f33b24a769a44c5286a7d6c21"
+    args.best_from_mlflow_run_id = "c518406a7950463eabf8a75512e8cef6"
 
     try:
         # Set up configuration
