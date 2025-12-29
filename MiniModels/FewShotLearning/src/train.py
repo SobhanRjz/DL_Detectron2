@@ -150,7 +150,8 @@ def optimize_hyperparameters(
         data_config=data_config,
         backbone_options=['resnet18'],  # Can be expanded
         efficiency_threshold=80.0,
-        mlflow_tracking_uri=args.mlflow_tracking_uri
+        mlflow_tracking_uri=args.mlflow_tracking_uri,
+        logger=logger
     )
 
     # Show dataset constraints
@@ -200,11 +201,12 @@ def load_params_from_run_id(run_id: str, tracking_uri: str) -> Dict[str, Any]:
             "learning_rate": float(params["learning_rate"]),
             "weight_decay": float(params["weight_decay"]),
             "backbone": params["backbone"],
-            "n_training_episodes": 500,
+            "n_training_episodes": 100,
             "freeze_backbone": str(params["freeze_backbone"]).lower() == "true",
             "n_shot": int(params["n_shot"]),
             "n_query": int(params["n_query"]),
             "n_way": int(params.get("n_way", 4)),
+            "augmentation_strategy": params.get("augmentation_strategy", "none"),
         }
 
         return best_params
@@ -271,11 +273,12 @@ def load_best_config_from_mlflow(
         best_params = {
             "learning_rate": float(params["learning_rate"]),
             "weight_decay": float(params["weight_decay"]),
-            "n_training_episodes": 500,  # Override for final training
+            "n_training_episodes": 100,  # Override for final training
             "backbone": params["backbone"],
             "freeze_backbone": str(params["freeze_backbone"]).lower() == "true",
             "n_shot": int(params["n_shot"]),
             "n_query": int(params["n_query"]),
+            "augmentation_strategy": params.get("augmentation_strategy", "none"),
         }
 
         return best_params, best_run_id, parent_run_id
@@ -288,11 +291,17 @@ def load_best_config_from_mlflow(
 
 def setup_logging() -> logging.Logger:
     """Set up logging configuration."""
+    # Configure root logger
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        force=True  # Force reconfiguration even if already configured
     )
-    return logging.getLogger(__name__)
+
+    # Get and configure the specific logger
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    return logger
 
 
 def setup_training_config(args: argparse.Namespace) -> Tuple[ModelConfig, DataConfig]:
@@ -367,7 +376,7 @@ def run_hyperparameter_optimization(
     results = optimize_hyperparameters(model_config, data_config, args, logger)
 
     # Apply best parameters to config
-    optimizer = HyperparameterOptimizer(model_config, data_config)
+    optimizer = HyperparameterOptimizer(model_config, data_config, logger=logger)
     results['best_params']['n_training_episodes'] = 100
     updated_config = optimizer.apply_best_params_to_config(results['best_params'])
 
@@ -418,6 +427,7 @@ def run_final_training(
             "n_shot": model_config.n_shot,
             "n_query": model_config.n_query,
             "n_way": model_config.n_way,
+            "augmentation_strategy": model_config.augmentation.augmentation_strategy,
             "training_type": "final_500_episodes",
             "loaded_from_mlflow": True
         })
@@ -507,7 +517,11 @@ def main() -> None:
     - Final training with best parameters from MLflow
     - Regular training with default parameters
     """
+    print("Setting up logging...")  # Debug print
     logger = setup_logging()
+    print(f"Logger created: {logger.name}")  # Debug print
+    logger.info("Starting training script...")  # Test log
+    print("Parsing arguments...")  # Debug print
     args = parse_arguments()
 
     # Override with specific configuration (TODO: Make this configurable)
@@ -519,7 +533,7 @@ def main() -> None:
     args.optimize_hyperparams = True
     args.register_model = False
     args.load_best_from_mlflow_run_id = True
-    args.best_from_mlflow_run_id = "c518406a7950463eabf8a75512e8cef6"
+    args.best_from_mlflow_run_id = "baf0581f3efb4daebb8ee38e9a7590d7"
 
     try:
         # Set up configuration
@@ -528,7 +542,7 @@ def main() -> None:
 
         # Show dataset info if requested
         if args.show_dataset_info:
-            temp_pipeline = Pipeline(model_config, data_config)
+            temp_pipeline = Pipeline(model_config, data_config, logger)
             temp_pipeline.print_dataset_info()
             return
 
@@ -538,7 +552,7 @@ def main() -> None:
             best_params = load_best_parameters(args, model_config, data_config, logger)
 
             # Apply best parameters to config
-            optimizer = HyperparameterOptimizer(model_config, data_config)
+            optimizer = HyperparameterOptimizer(model_config, data_config, logger=logger)
             model_config = optimizer.apply_best_params_to_config(best_params)
             logger.info("Training with best parameters from MLflow")
 
@@ -551,7 +565,7 @@ def main() -> None:
             logger.info("Training with default configuration")
 
         # Create and run training pipeline
-        pipeline = Pipeline(model_config, data_config)
+        pipeline = Pipeline(model_config, data_config, logger)
 
         if args.load_best_from_mlflow:
             run_final_training(pipeline, model_config, data_config, args, logger)

@@ -7,12 +7,12 @@ import optuna
 from optuna import Trial
 from optuna.study import Study
 from pathlib import Path
+import os
 
-from .config import ModelConfig, DataConfig
+from .config import ModelConfig, DataConfig, AugmentationConfig
 from ..pipeline import Pipeline
 import math
 import logging
-import os
 import tempfile
 import mlflow
 import mlflow.pytorch
@@ -33,7 +33,8 @@ class HyperparameterOptimizer:
         efficiency_threshold: float = 80.0,
         param_penalty_scale: float = 10_000_000,
         speed_penalty_scale: float = 100,
-        mlflow_tracking_uri: str = "http://localhost:5000"
+        mlflow_tracking_uri: str = "http://localhost:5000",
+        logger: Optional[logging.Logger] = None
     ):
         """Initialize the hyperparameter optimizer.
 
@@ -44,6 +45,8 @@ class HyperparameterOptimizer:
             efficiency_threshold: Accuracy threshold above which efficiency is considered
             param_penalty_scale: Scaling factor for parameter count penalty
             speed_penalty_scale: Scaling factor for inference speed penalty
+            mlflow_tracking_uri: MLflow tracking URI
+            logger: Optional logger instance
         """
         self.base_model_config = base_model_config
         self.data_config = data_config
@@ -55,7 +58,9 @@ class HyperparameterOptimizer:
         self.study: Optional[Study] = None
 
         # Set up logger
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logger or logging.getLogger(self.__class__.__name__)
+        if not logger:
+            self.logger.setLevel(logging.INFO)
 
         # Set up MLflow tracking
         dataset_name = Path(self.data_config.train_root).parent.name  # Get dataset name (Deposit/Root)
@@ -226,7 +231,7 @@ class HyperparameterOptimizer:
 
         # Define hyperparameter search space
         config.learning_rate = trial.suggest_float(
-            'learning_rate', 1e-6, 1e-2, log=True
+            'learning_rate', 1e-6, 1e-3, log=True
         )
 
         config.weight_decay = trial.suggest_float(
@@ -264,6 +269,13 @@ class HyperparameterOptimizer:
             # This should not happen with the constrained ranges, but just in case
             self.logger.warning(f"n_shot({config.n_shot}) + n_query({config.n_query}) = {total_needed} > min_samples({test_min_samples})")
 
+        # Data augmentation hyperparameters
+        augmentation_strategy = trial.suggest_categorical(
+            'augmentation_strategy', ['none', 'basic', 'moderate', 'strong']
+        )
+
+        config.augmentation = AugmentationConfig(augmentation_strategy=augmentation_strategy)
+
         # Adjust learning rate based on backbone freeze status
         if not config.freeze_backbone and config.backbone == 'resnet50':
             config.learning_rate *= 0.1
@@ -299,11 +311,12 @@ class HyperparameterOptimizer:
                         "n_shot": model_config.n_shot,
                         "n_query": model_config.n_query,
                         "n_way": model_config.n_way,
+                        "augmentation_strategy": model_config.augmentation.augmentation_strategy,
                         "trial_number": trial.number
                     })
 
                     # Create pipeline with suggested hyperparameters
-                    pipeline = Pipeline(model_config, self.data_config)
+                    pipeline = Pipeline(model_config, self.data_config, self.logger)
 
                     # Run training and get final accuracy
                     final_acc = pipeline.run()
@@ -436,8 +449,9 @@ class HyperparameterOptimizer:
             )
 
             # Run optimization (IMPORTANT: use n_jobs=1 for SQLite backend)
-            # Run optimization (IMPORTANT: use n_jobs=1 for SQLite backend)
-            self.study.optimize(self.objective, n_trials=n_trials, timeout=timeout, n_jobs=4)
+            # For parallel execution, use n_jobs based on CPU count (max 4 to avoid overload)
+            n_jobs = min(4, max(1, os.cpu_count() or 1))
+            self.study.optimize(self.objective, n_trials=n_trials, timeout=timeout, n_jobs=n_jobs)
             # Log clean results summary
             self.logger.info("="*60)
             self.logger.info("HYPERPARAMETER OPTIMIZATION COMPLETE")
@@ -465,6 +479,7 @@ class HyperparameterOptimizer:
             self.logger.info(f"   Freeze Backbone: {self.study.best_params['freeze_backbone']}")
             self.logger.info(f"   N-Shot: {self.study.best_params['n_shot']}")
             self.logger.info(f"   N-Query: {self.study.best_params['n_query']}")
+            self.logger.info(f"   Augmentation Strategy: {self.study.best_params['augmentation_strategy']}")
 
             self.logger.info("="*60)
 
@@ -507,6 +522,7 @@ class HyperparameterOptimizer:
                     "n_shot": best_config.n_shot,
                     "n_query": best_config.n_query,
                     "n_way": best_config.n_way,
+                    "augmentation_strategy": best_config.augmentation.augmentation_strategy,
                     "trial_number": best_trial.number,
                     "is_best_model": True
                 })
@@ -528,14 +544,14 @@ class HyperparameterOptimizer:
                 self.logger.info("Training best model for MLflow logging...")
 
                 # Create pipeline with best config
-                pipeline = Pipeline(best_config, self.data_config)
+                pipeline = Pipeline(best_config, self.data_config, self.logger)
 
                 # Train the model
                 best_model_accuracy = pipeline.run()
 
                 # Log the trained model to MLflow
                 dataset_name = Path(self.data_config.train_root).parent.name
-                registered_model_name = f"fewshot_{dataset_name}_be#t"
+                registered_model_name = f"fewshot_{dataset_name}_best"
 
                 ## register model
                 # mlflow.pytorch.log_model(
@@ -573,6 +589,12 @@ class HyperparameterOptimizer:
         config.freeze_backbone = best_params['freeze_backbone']
         config.n_shot = best_params['n_shot']
         config.n_query = best_params['n_query']
+
+        # Apply augmentation parameters
+        if 'augmentation_strategy' in best_params:
+            config.augmentation = AugmentationConfig(
+                augmentation_strategy=best_params['augmentation_strategy']
+            )
 
         # Adjust learning rate for unfrozen larger models
         if not config.freeze_backbone and config.backbone == 'resnet50':

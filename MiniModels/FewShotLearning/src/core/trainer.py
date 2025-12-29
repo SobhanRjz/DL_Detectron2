@@ -45,7 +45,7 @@ class Trainer:
         )
         self.scheduler = optim.lr_scheduler.StepLR(
             self.optimizer,
-            step_size=config.n_training_episodes // 4,
+            step_size=config.n_training_episodes // config.scheduler_step_divisor,
             gamma=0.7
         )
         
@@ -134,17 +134,19 @@ class Trainer:
         best_val_acc = 0.0
         best_state = None
         patience_counter = 0
-        patience = 5
+        patience = self.config.early_stopping_patience
         
         with tqdm(enumerate(train_loader), total=len(train_loader)) as pbar:
             for ep_idx, (support_imgs, support_lbls, query_imgs, query_lbls, _) in pbar:
                 loss = self._train_episode(support_imgs, support_lbls, query_imgs, query_lbls)
                 self.losses.append(loss)
-                self.scheduler.step()
 
                 if (val_loader and ep_idx % self.config.validation_frequency == 0 and ep_idx > 0):
                     val_acc = self._validate(val_loader)
                     self.val_accuracies.append(val_acc)
+                    
+                    # Step scheduler after validation check
+                    self.scheduler.step()
                     
                     if val_acc > best_val_acc:
                         best_val_acc = val_acc

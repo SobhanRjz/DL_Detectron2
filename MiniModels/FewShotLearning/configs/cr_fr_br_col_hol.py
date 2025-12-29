@@ -17,7 +17,7 @@ def get_config() -> tuple[ModelConfig, DataConfig]:
         n_way=5,  # Cr (Crack), Fr (Fracture), Br (Break), Xr (Collision), Hol (Hole)
         n_shot=1,  # Reduced due to limited test samples
         n_query=1,  # Reduced due to limited test samples
-        n_training_episodes=500,
+        n_training_episodes=150,
         learning_rate=0.0001,
         random_seed=42,
     )
